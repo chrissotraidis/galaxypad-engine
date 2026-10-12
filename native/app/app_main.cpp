@@ -248,10 +248,11 @@ bool resolvePaths(int argc, char** argv, App::Paths* paths) {
     return true;
 }
 
-// iOS: the first launch for a user folder prepares every known pipeline behind
-// the progress screen (about three minutes on an iPhone 14), which fills the
-// system's Metal shader cache. Later launches start at once and rebuild from that
-// cache in the background. The marker records a completed preparation.
+// iOS: the first launch prepares every known pipeline behind the progress screen
+// (about three minutes on an iPhone 14), which fills the system's Metal shader
+// cache for the app. Later launches start at once and rebuild from that cache in
+// the background. The marker sits in the app's cache folder, so it disappears
+// when the system clears caches, and preparation then runs again.
 std::filesystem::path gPreparedMarker;
 
 bool prepareKnownPipelines(SDL_Window* window) {
@@ -406,9 +407,11 @@ int main(int argc, char** argv) {
         return 2;
     }
 #if TARGET_OS_IPHONE
-    if (std::getenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE") == nullptr) {
-        gPreparedMarker = paths.user / ".petari-pipelines-prepared";
+    if (const char* home = std::getenv("HOME"); std::getenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE") == nullptr && home != nullptr) {
+        const std::filesystem::path caches = std::filesystem::path(home) / "Library/Caches/Petari";
         std::error_code ec;
+        std::filesystem::create_directories(caches, ec);
+        gPreparedMarker = caches / ".pipelines-prepared";
         if (!std::filesystem::exists(gPreparedMarker, ec)) {
             setenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE", "1", 1);
         }

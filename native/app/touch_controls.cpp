@@ -37,20 +37,23 @@ struct Control {
     float x, y, r;
     bool rightAnchor;  // anchored to the lower-right corner, else lower-left
     bool pill;
+    // Phone layout (screens wider than 1.9:1): the right-hand controls stand in a
+    // column inside the pillarbox bar, clear of the game's HUD counters.
+    float px, py, pr;
     bool held = false;
 };
 
 std::array<Control, 10> gControls = {{
-    {"A", Kind::Button, PadButton::South, 0, -1.45f, -1.25f, 0.78f, true, false},
-    {"B", Kind::Button, PadButton::East, 0, -3.05f, -0.80f, 0.56f, true, false},
-    {"X", Kind::Button, PadButton::West, 0, -0.95f, -3.00f, 0.60f, true, false},
-    {"Y", Kind::Button, PadButton::LeftShoulder, 0, -2.55f, -2.45f, 0.48f, true, false},
-    {"Z", Kind::Button, PadButton::LeftTrigger, 0, 3.75f, -3.35f, 0.50f, false, false},
-    {"+", Kind::Button, PadButton::Start, 0, -1.05f, -4.55f, 0.36f, true, true},
-    {"-", Kind::Button, PadButton::Back, 0, -2.15f, -4.55f, 0.36f, true, true},
-    {"1", Kind::Key, PadButton::Count, Input::Key::Num1, 1.10f, -5.20f, 0.36f, false, true},
-    {"2", Kind::Key, PadButton::Count, Input::Key::Num2, 2.20f, -5.20f, 0.36f, false, true},
-    {"Home", Kind::Button, PadButton::Guide, 0, 3.75f, -5.20f, 0.36f, false, true},
+    {"A", Kind::Button, PadButton::South, 0, -1.45f, -1.25f, 0.78f, true, false, -1.15f, -1.20f, 0.74f},
+    {"B", Kind::Button, PadButton::East, 0, -3.05f, -0.80f, 0.56f, true, false, -1.15f, -4.40f, 0.52f},
+    {"X", Kind::Button, PadButton::West, 0, -0.95f, -3.00f, 0.60f, true, false, -1.15f, -2.85f, 0.58f},
+    {"Y", Kind::Button, PadButton::LeftShoulder, 0, -2.55f, -2.45f, 0.48f, true, false, -1.15f, -5.80f, 0.46f},
+    {"Z", Kind::Button, PadButton::LeftTrigger, 0, 3.75f, -3.35f, 0.50f, false, false, 3.75f, -3.35f, 0.50f},
+    {"+", Kind::Button, PadButton::Start, 0, -1.05f, -4.55f, 0.36f, true, true, -0.70f, -7.25f, 0.32f},
+    {"-", Kind::Button, PadButton::Back, 0, -2.15f, -4.55f, 0.36f, true, true, -1.65f, -7.25f, 0.32f},
+    {"1", Kind::Key, PadButton::Count, Input::Key::Num1, 1.10f, -5.20f, 0.36f, false, true, 1.10f, -5.20f, 0.36f},
+    {"2", Kind::Key, PadButton::Count, Input::Key::Num2, 2.20f, -5.20f, 0.36f, false, true, 2.20f, -5.20f, 0.36f},
+    {"Home", Kind::Button, PadButton::Guide, 0, 3.75f, -5.20f, 0.36f, false, true, 3.75f, -5.20f, 0.36f},
 }};
 
 struct Finger {
@@ -69,6 +72,8 @@ bool gStickActive = false;
 float gStickOriginX = 0.0f, gStickOriginY = 0.0f, gStickKnobX = 0.0f, gStickKnobY = 0.0f;
 
 float unit() { return std::clamp(std::min(gWidth, gHeight) * 0.085f, 26.0f, 58.0f); }
+bool phone() { return gHeight > 0.0f && gWidth / gHeight > 1.9f; }
+float radius(const Control& c) { return phone() ? c.pr : c.r; }
 float margin() { return unit() * 0.55f; }
 float stickRadius() { return unit() * 1.35f; }
 void stickHome(float* x, float* y) {
@@ -80,8 +85,8 @@ void centre(const Control& c, float* x, float* y) {
     const float u = unit();
     const float ax = c.rightAnchor ? gWidth - margin() : margin();
     const float ay = gHeight - margin();
-    *x = ax + c.x * u;
-    *y = ay + c.y * u;
+    *x = ax + (phone() ? c.px : c.x) * u;
+    *y = ay + (phone() ? c.py : c.y) * u;
 }
 
 int hitControl(float x, float y) {
@@ -92,7 +97,7 @@ int hitControl(float x, float y) {
         float cx, cy;
         centre(gControls[i], &cx, &cy);
         const float d = std::hypot(x - cx, y - cy);
-        const float reach = gControls[i].r * u * 1.25f;
+        const float reach = radius(gControls[i]) * u * 1.25f;
         if (d <= reach && (best < 0 || d < bestDistance)) {
             best = i;
             bestDistance = d;
@@ -341,7 +346,7 @@ void draw() {
     for (const Control& c : gControls) {
         float cx, cy;
         centre(c, &cx, &cy);
-        const float r = c.r * u;
+        const float r = radius(c) * u;
         const ImVec2 p(cx * s, cy * s);
         if (c.pill) {
             const float half = std::max(r * 1.3f, font->CalcTextSizeA(r * 1.1f * s, 1e9f, 0.0f, c.label).x / s * 0.5f + r * 0.6f);
