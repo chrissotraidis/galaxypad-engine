@@ -62,9 +62,18 @@ inline void noteRead(std::uint32_t frame) {
     readFrame.store(frame);
     stage.store(Read);
 }
-// GXCopyDisp into xfb during Aurora frame `frame`.
+// GXCopyDisp into xfb during Aurora frame `frame`. The response to a read in
+// frame F is drawn in F+1 and copied in F+2 in the Wii frame order; with
+// PETARI_LOW_LATENCY=1 (update before draw) it is drawn in F and copied in F+1.
+inline std::uint32_t copyOffset() {
+    static const std::uint32_t offset = [] {
+        const char* value = std::getenv("PETARI_LOW_LATENCY");
+        return value != nullptr && value[0] == '1' ? 1u : 2u;
+    }();
+    return offset;
+}
 inline void noteCopy(const void* xfb, std::uint32_t frame) {
-    if (stage.load(std::memory_order_relaxed) != Read || frame < readFrame.load() + 2) return;
+    if (stage.load(std::memory_order_relaxed) != Read || frame < readFrame.load() + copyOffset()) return;
     copyNs.store(nowNs());
     copyFrame.store(frame);
     copyXfb.store(xfb);

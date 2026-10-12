@@ -319,12 +319,32 @@ bool GameSystem::isPreparedReset() const {
 }
 
 void GameSystem::frameLoop() {
+#ifdef PETARI_NATIVE
+    // PETARI_LOW_LATENCY=1: run this frame's update and animation before drawing,
+    // so the frame shows the input it just read. The Wii order (draw the previous
+    // update first) kept the CPU and GPU busy in parallel; natively it only costs
+    // a frame of input latency.
+    static const bool lowLatency = [] {
+        const char* value = std::getenv("PETARI_LOW_LATENCY");
+        return value != nullptr && value[0] == '1';
+    }();
+    if (lowLatency) {
+        MainLoopFramework::sManager->beginRender();
+        update();
+        calcAnim();
+        mObjHolder->captureIfAllowForScreenPreserver();
+        draw();
+        MainLoopFramework::sManager->endRender();
+    } else
+#endif
+    {
     MainLoopFramework::sManager->beginRender();
     draw();
     MainLoopFramework::sManager->endRender();
     update();
     calcAnim();
     mObjHolder->captureIfAllowForScreenPreserver();
+    }
 #ifdef PETARI_NATIVE
     petari_host_frame_mark(PETARI_FRAME_MARK_END_FRAME);  // frame-time statistics
 #endif
