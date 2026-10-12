@@ -49,11 +49,13 @@ std::array<Control, 10> gControls = {{
     {"X", Kind::Button, PadButton::West, 0, -0.95f, -3.00f, 0.60f, true, false, -1.15f, -2.85f, 0.58f},
     {"Y", Kind::Button, PadButton::LeftShoulder, 0, -2.55f, -2.45f, 0.48f, true, false, -1.15f, -5.80f, 0.46f},
     {"Z", Kind::Button, PadButton::LeftTrigger, 0, 3.75f, -3.35f, 0.50f, false, false, 3.75f, -3.35f, 0.50f},
-    {"+", Kind::Button, PadButton::Start, 0, -1.05f, -4.55f, 0.36f, true, true, -0.70f, -7.25f, 0.32f},
-    {"-", Kind::Button, PadButton::Back, 0, -2.15f, -4.55f, 0.36f, true, true, -1.65f, -7.25f, 0.32f},
-    {"1", Kind::Key, PadButton::Count, Input::Key::Num1, 1.10f, -5.20f, 0.36f, false, true, 1.10f, -5.20f, 0.36f},
-    {"2", Kind::Key, PadButton::Count, Input::Key::Num2, 2.20f, -5.20f, 0.36f, false, true, 2.20f, -5.20f, 0.36f},
-    {"Home", Kind::Button, PadButton::Guide, 0, 3.75f, -5.20f, 0.36f, false, true, 3.75f, -5.20f, 0.36f},
+    // Phone: +/- stack above Y; 1, 2 and Home stand at the top of the left bar,
+    // above the notch, so no pill covers the game image.
+    {"+", Kind::Button, PadButton::Start, 0, -1.05f, -4.55f, 0.36f, true, true, -1.15f, -7.80f, 0.32f},
+    {"-", Kind::Button, PadButton::Back, 0, -2.15f, -4.55f, 0.36f, true, true, -1.15f, -6.90f, 0.32f},
+    {"1", Kind::Key, PadButton::Count, Input::Key::Num1, 1.10f, -5.20f, 0.36f, false, true, 0.60f, -9.50f, 0.32f},
+    {"2", Kind::Key, PadButton::Count, Input::Key::Num2, 2.20f, -5.20f, 0.36f, false, true, 0.60f, -8.60f, 0.32f},
+    {"Home", Kind::Button, PadButton::Guide, 0, 3.75f, -5.20f, 0.36f, false, true, 0.60f, -10.40f, 0.32f},
 }};
 
 struct Finger {
