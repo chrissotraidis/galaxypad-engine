@@ -52,8 +52,9 @@ if(NOT _petari_app_standalone)
         petari_host_runtime petari_app_smoke)
 
     add_executable(petari MACOSX_BUNDLE app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp
-        wii_save_import.cpp)
-    target_link_libraries(petari PRIVATE petari_app_host petari_app_platform aurora::core aurora::main SQLite::SQLite3)
+        wii_save_import.cpp seed_pack.cpp)
+    target_link_libraries(petari PRIVATE petari_app_host petari_app_platform aurora::core aurora::main SQLite::SQLite3
+        $<$<PLATFORM_ID:Darwin,iOS>:compression>)
     # A real bundle identity: macOS uses it for the Dock/menu name, window state,
     # permissions and app identification. User data stays at the explicit path in app_main.
     set_target_properties(petari PROPERTIES OUTPUT_NAME "Petari"
@@ -138,10 +139,10 @@ if(NOT _petari_app_standalone)
         target_compile_definitions(SDL3-static PRIVATE ${_petari_sdl_renames})
 
         add_library(GalaxyPadEngine SHARED app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp
-            wii_save_import.cpp engine_entry.mm)
+            wii_save_import.cpp seed_pack.cpp engine_entry.mm)
         set_source_files_properties(engine_entry.mm PROPERTIES COMPILE_DEFINITIONS "${_petari_sdl_renames}")
         target_link_libraries(GalaxyPadEngine PRIVATE petari_app_host petari_app_platform aurora::core SQLite::SQLite3
-            "-framework Foundation" "-framework UIKit")
+            compression "-framework Foundation" "-framework UIKit")
         target_link_options(GalaxyPadEngine PRIVATE "-Wl,-exported_symbol,_galaxypad_engine_main" "-Wl,-dead_strip")
         set_target_properties(GalaxyPadEngine PROPERTIES
             FRAMEWORK TRUE
@@ -189,6 +190,16 @@ if(NOT _petari_app_standalone)
             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${_petari_license_dir}"
                 "$<TARGET_BUNDLE_DIR:GalaxyPadEngine>/Licenses"
             VERBATIM)
+
+        # GalaxyPad ships the newest tracked seed pack (a few hundred KB) instead of
+        # the expanded databases (about 400 MB); app_main expands it on first launch.
+        list(SORT _petari_seed_packs COMPARE NATURAL)
+        list(LENGTH _petari_seed_packs _petari_seed_pack_count)
+        if(_petari_seed_pack_count EQUAL 0)
+            message(FATAL_ERROR "GalaxyPadEngine: no native/data/pipeline-seeds.v*.xz pack")
+        endif()
+        list(GET _petari_seed_packs -1 _petari_seed_pack)
+        configure_file("${_petari_seed_pack}" "${CMAKE_CURRENT_BINARY_DIR}/pipeline-seeds.xz" COPYONLY)
     endif()
 else()
     set(PETARI_AURORA_INCLUDE_DIR "${PETARI_REPO_ROOT}/../aurora-reference/include" CACHE PATH "Aurora headers")
@@ -204,6 +215,14 @@ if(BUILD_TESTING)
         add_executable(petari_app_smoke_storage_tests ${PETARI_REPO_ROOT}/native/tests/app_smoke_storage_tests.cpp smoke_storage.cpp)
         target_link_libraries(petari_app_smoke_storage_tests PRIVATE SQLite::SQLite3)
         add_test(NAME native_app_smoke_storage COMMAND petari_app_smoke_storage_tests)
+        # The engine's seed-pack expansion (GalaxyPad ships the pack) against seedpack.py.
+        if(APPLE)
+            add_executable(petari_seed_pack_tool ${PETARI_REPO_ROOT}/native/tests/seed_pack_tool.cpp seed_pack.cpp)
+            target_compile_features(petari_seed_pack_tool PRIVATE cxx_std_17)
+            target_link_libraries(petari_seed_pack_tool PRIVATE SQLite::SQLite3 compression)
+            add_test(NAME native_seed_pack COMMAND "${Python3_EXECUTABLE}"
+                "${PETARI_REPO_ROOT}/native/tests/seed_pack_native_tests.py" $<TARGET_FILE:petari_seed_pack_tool>)
+        endif()
     endif()
     add_executable(petari_app_launch_stage_tests ${PETARI_REPO_ROOT}/native/tests/app_launch_stage_tests.cpp
         ${PETARI_REPO_ROOT}/native/home_menu/launch_stage.cpp)

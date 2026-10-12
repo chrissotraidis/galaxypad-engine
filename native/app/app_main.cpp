@@ -38,6 +38,8 @@
 #include "pipeline_cache_dir.hpp"
 #include "latency_report.hpp"
 #include "wii_save_import.hpp"
+#include "seed_pack.hpp"
+#include <SDL3/SDL_filesystem.h>
 #include <petari/launch_stage.hpp>
 #include <petari/player_launch.hpp>
 #include <petari/host_allocation.hpp>
@@ -438,6 +440,23 @@ int main(int argc, char** argv) {
         gPreparedMarker = caches / ".pipelines-prepared";
         if (!std::filesystem::exists(gPreparedMarker, ec)) {
             setenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE", "1", 1);
+        }
+    }
+    // GalaxyPad ships the pipeline seeds as a pack (seed_pack.hpp): expand it once
+    // into the caches folder, again if iOS clears that folder.
+    if (const char* home = std::getenv("HOME"); std::getenv("PETARI_PIPELINE_SEED_DIR") == nullptr && home != nullptr) {
+        const char* base = SDL_GetBasePath();
+        std::error_code ec;
+        const std::filesystem::path pack = std::filesystem::path(base ? base : "") / "pipeline-seeds.xz";
+        if (base != nullptr && std::filesystem::is_regular_file(pack, ec)) {
+            PetariNative::HostAllocationScope host;
+            std::string why;
+            const auto seeds = App::SeedPack::ensure(pack, std::filesystem::path(home) / "Library/Caches/Petari/pipeline-seeds", &why);
+            if (seeds.empty()) {
+                std::fprintf(stderr, "petari: pipeline seeds: %s\n", why.c_str());
+            } else {
+                setenv("PETARI_PIPELINE_SEED_DIR", seeds.c_str(), 1);
+            }
         }
     }
 #endif
