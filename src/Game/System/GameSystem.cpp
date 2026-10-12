@@ -38,6 +38,7 @@
 #ifdef PETARI_NATIVE
 #include <JSystem/JKernel/JKRSolidHeap.hpp>
 #include <petari/app.hpp>
+#include "Game/System/SmoothMotion.hpp"
 // native/platform/gx_sync (GXSync::waitTokensDelivered)
 extern "C" void petari_gx_sync_wait_tokens_delivered(void);
 #include <cstdlib>
@@ -329,10 +330,22 @@ void GameSystem::frameLoop() {
         return value != nullptr && value[0] == '1';
     }();
     if (lowLatency) {
+        // Smooth Motion (PETARI_SMOOTH_MOTION=1): draw and present a frame halfway
+        // between the previous step and this one first, then the step itself.
+        SmoothMotion::beginStep();
         MainLoopFramework::sManager->beginRender();
         update();
         calcAnim();
         mObjHolder->captureIfAllowForScreenPreserver();
+        if (SmoothMotion::beginBetween()) {
+            draw();
+            MainLoopFramework::sManager->endRender();
+            MainLoopFramework::sManager->endFrame();
+            petari_host_present_between();
+            petari_gx_sync_wait_tokens_delivered();
+            SmoothMotion::endBetween();
+            MainLoopFramework::sManager->beginRender();
+        }
         draw();
         MainLoopFramework::sManager->endRender();
     } else

@@ -669,3 +669,33 @@ extern "C" void petari_host_frame_seam(void) {
     gTiming.seamNs[3] = exit - reacquireStart;
     gTiming.lastExit = exit;
 }
+
+extern "C" void petari_host_present_between(void) {
+    PetariNative::HostAllocationScope host;
+    const bool release = gRelease.begin != nullptr && gRelease.end != nullptr;
+    if (release) {
+        gRelease.begin();
+    }
+    if (gPresent.composeFrame != nullptr) {
+        gPresent.composeFrame(gPresent.user);
+    }
+    const Rect image = updateImage();
+    PetariNative::HomeMenu::drawImGuiOverlay(image.x, image.y, image.width, image.height);
+    TouchControls::draw();
+    aurora_end_frame();
+    handleEvents(aurora_update());
+    openFrame();
+    if (release) {
+        gRelease.end();
+    }
+}
+
+extern "C" int petari_host_display_hz(void) {
+    static const int hz = [] {
+        const SDL_DisplayMode* mode = gWindow != nullptr ? SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(gWindow)) : nullptr;
+        const int value = mode != nullptr ? static_cast<int>(mode->refresh_rate + 0.5f) : 0;
+        std::fprintf(stderr, "Petari: display refresh %d Hz\n", value);
+        return value;
+    }();
+    return hz;
+}

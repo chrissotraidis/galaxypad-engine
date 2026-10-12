@@ -13,6 +13,14 @@
 
 extern "C" void petari_host_frame_seam(void);
 
+// Smooth Motion's in-between frame (Game/System/SmoothMotion.hpp): composes,
+// draws the overlays, presents and opens the next Aurora frame, with events,
+// but without the per-step statistics, scripts and recordings of the seam.
+extern "C" void petari_host_present_between(void);
+
+// The game window's display refresh rate in Hz (0 if unknown), read once.
+extern "C" int petari_host_display_hz(void);
+
 // Frame-time marks for the seam's statistics, from GameSystem::frameLoop on
 // the same thread: the retrace wait after the seam returned, and endFrame
 // (its GXDrawDone wait) is starting. A timestamp each; no other effect.

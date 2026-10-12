@@ -28,7 +28,35 @@ class J3DShapeX : public J3DShape {};
 
 class J3DShapePacketX : public J3DShapePacket {};
 
+#ifdef PETARI_NATIVE
+#include <JSystem/J3DGraphBase/J3DSys.hpp>
+// J3DModel.cpp: Smooth Motion's per-model view adjustment (Game/System/SmoothMotion.hpp).
+extern bool (*gPetariJ3DViewAdjust)(J3DModel* pModel, MtxPtr pView);
+namespace {
+// Mario's models compute their views here rather than in J3DModel::viewCalc.
+struct SmoothMotionView {
+    explicit SmoothMotionView(J3DModel* pModel) {
+        if (gPetariJ3DViewAdjust != nullptr) {
+            PSMTXCopy(j3dSys.mViewMtx, mSaved);
+            mAdjusted = gPetariJ3DViewAdjust(pModel, j3dSys.mViewMtx);
+        }
+    }
+    ~SmoothMotionView() {
+        if (mAdjusted) {
+            PSMTXCopy(mSaved, j3dSys.mViewMtx);
+        }
+    }
+    Mtx mSaved;
+    bool mAdjusted = false;
+};
+}  // namespace
+#define PETARI_SMOOTH_MOTION_VIEW() SmoothMotionView smoothMotionView(this)
+#else
+#define PETARI_SMOOTH_MOTION_VIEW()
+#endif
+
 void J3DModelX::viewCalc2() {
+    PETARI_SMOOTH_MOTION_VIEW();
     J3DMtxBuffer2* buffer = static_cast< J3DMtxBuffer2* >(mMtxBuffer);
     buffer->swapDrawMtx();
     buffer->swapNrmMtx();
@@ -54,6 +82,7 @@ void J3DModelX::copyAnmMtxBuffer(const J3DModelX* model) {
 }
 
 void J3DModelX::viewCalc3(u32 view, MtxPtr mtx) {
+    PETARI_SMOOTH_MOTION_VIEW();
     J3DMtxBuffer2* buffer = static_cast< J3DMtxBuffer2* >(mMtxBuffer);
     buffer->rotationMtx(*mExtraMtxBuffer[view + _DC]);
 
@@ -75,6 +104,7 @@ void J3DModelX::viewCalc3(u32 view, MtxPtr mtx) {
 }
 
 void J3DModelX::viewCalcRef(u32 view, J3DModel* model) {
+    PETARI_SMOOTH_MOTION_VIEW();
     J3DMtxBuffer2* buffer = static_cast< J3DMtxBuffer2* >(mMtxBuffer);
     buffer->rotationMtx(*mExtraMtxBuffer[view + _DC]);
     buffer->calcDrawMtx2(getMtxCalcMode(), mBaseScale, mBaseTransformMtx, model->getMtxBuffer());
@@ -83,6 +113,7 @@ void J3DModelX::viewCalcRef(u32 view, J3DModel* model) {
 }
 
 void J3DModelX::viewCalcRefPos(u32 view, J3DModel* model, const TVec3f& pos, const TVec3f& normal) {
+    PETARI_SMOOTH_MOTION_VIEW();
     J3DMtxBuffer2* buffer = static_cast< J3DMtxBuffer2* >(mMtxBuffer);
     buffer->rotationMtx(*mExtraMtxBuffer[view + _DC]);
     buffer->calcDrawMtx3(getMtxCalcMode(), mBaseScale, mBaseTransformMtx, model->getMtxBuffer(), pos, normal);

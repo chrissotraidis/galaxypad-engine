@@ -4,6 +4,11 @@
 #include "JSystem/J3DGraphBase/J3DMaterial.hpp"
 #include "JSystem/J3DGraphBase/J3DShapeMtx.hpp"
 
+#ifdef PETARI_NATIVE
+// Set by Smooth Motion (Game/System/SmoothMotion.cpp) when it is on.
+bool (*gPetariJ3DViewAdjust)(J3DModel* pModel, MtxPtr pView) = nullptr;
+#endif
+
 void J3DModel::initialize() {
     mModelData = NULL;
     mFlags = 0;
@@ -337,6 +342,16 @@ void J3DModel::entry() {
 }
 
 void J3DModel::viewCalc() {
+#ifdef PETARI_NATIVE
+    // Smooth Motion (Game/System/SmoothMotion.hpp) may adjust the view for this
+    // model's in-between frame; the shared view is restored afterwards.
+    Mtx savedView;
+    bool adjusted = false;
+    if (gPetariJ3DViewAdjust != nullptr) {
+        PSMTXCopy(j3dSys.mViewMtx, savedView);
+        adjusted = gPetariJ3DViewAdjust(this, j3dSys.mViewMtx);
+    }
+#endif
     mMtxBuffer->swapDrawMtx();
     mMtxBuffer->swapNrmMtx();
 
@@ -368,6 +383,11 @@ void J3DModel::viewCalc() {
     }
 
     prepareShapePackets();
+#ifdef PETARI_NATIVE
+    if (adjusted) {
+        PSMTXCopy(savedView, j3dSys.mViewMtx);
+    }
+#endif
 }
 
 void J3DModel::calcBumpMtx() {
