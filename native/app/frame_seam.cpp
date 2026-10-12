@@ -20,6 +20,7 @@ extern "C" void petari_gx_pipeline_report();
 #include "progress_observe.hpp"
 #include "smoke_background.hpp"
 #include "touch_controls.hpp"
+#include <petari/latency_probe.hpp>
 #include "smoke.hpp"
 #include "route_record.hpp"
 #include "smoke_domes.hpp"
@@ -677,12 +678,14 @@ extern "C" void petari_host_present_between(void) {
         gRelease.begin();
     }
     if (gPresent.composeFrame != nullptr) {
+        PetariNative::LatencyProbe::betweenPresent.store(true, std::memory_order_relaxed);
         gPresent.composeFrame(gPresent.user);
     }
     const Rect image = updateImage();
     PetariNative::HomeMenu::drawImGuiOverlay(image.x, image.y, image.width, image.height);
     TouchControls::draw();
     aurora_end_frame();
+    PetariNative::LatencyProbe::betweenPresent.store(false, std::memory_order_relaxed);
     handleEvents(aurora_update());
     openFrame();
     if (release) {

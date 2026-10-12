@@ -28,7 +28,9 @@ void composeFrame(void*) {
     // Latency probe: this seam's Aurora frame presents that XFB.
     const std::uint32_t frame = PetariNative::LatencyProbe::frame.load(std::memory_order_relaxed);
     if (!display.black) PetariNative::LatencyProbe::noteShown(xfb, frame);
-    PetariNative::LatencyProbe::frame.store(frame + 1, std::memory_order_relaxed);
+    if (!PetariNative::LatencyProbe::betweenPresent.load(std::memory_order_relaxed)) {
+        PetariNative::LatencyProbe::frame.store(frame + 1, std::memory_order_relaxed);
+    }
     PetariPresentVideo video{};
     video.xfb = xfb;
     video.configured = display.configured;

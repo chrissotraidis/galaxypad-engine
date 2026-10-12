@@ -43,6 +43,10 @@ inline std::atomic<std::uint32_t> readFrame{0}, copyFrame{0}, shownFrame{0};
 inline std::atomic<const void*> copyXfb{nullptr};
 // Aurora frames, counted at each present choice (petari_present::take).
 inline std::atomic<std::uint32_t> frame{0};
+// Smooth Motion's in-between present: it shows the same game step (half-way), so
+// it does not advance `frame`; the probe keeps one frame per game step, and a
+// response is "shown" at the first present that holds it, in-between or not.
+inline std::atomic<bool> betweenPresent{false};
 
 inline void notePress() {
     if (!enabled()) return;

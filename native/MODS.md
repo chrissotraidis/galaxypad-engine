@@ -52,6 +52,12 @@ restored Comet Observatory two frames a step take 21 ms at the full 2732x2048
 (so it stays at 60) and 14 ms at 3x (120). At 3x the Observatory, the Terrace
 and Good Egg hold 120 frames a second.
 
+Input latency (MacioGalaxy's probe, `PETARI_LATENCY_PROBE=1`, 86 automated A
+presses in Good Egg on the iPad, both at 3x): the first presented frame that shows
+the response arrives at a median 22.0 ms with Smooth Motion (p90 29.3; it is the
+half-way frame) and 28.4 ms without (p90 33.9). The probe counts one frame per
+game step, so an in-between present does not advance its frame count.
+
 `PETARI_SMOOTH_MOTION=1` or `0` overrides the mod and the screen check for
 one run (tests); `PETARI_SMOOTH_MOTION_MODELS=0` blends only the camera
 (a diagnostic: Mario then visibly judders against the scenery). The log reports
