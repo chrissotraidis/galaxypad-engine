@@ -6,7 +6,12 @@ void AutoEffectInfo_FORCE_MATCH_SDATA2() {
     (void)1.0f;
 }
 
+#ifdef PETARI_NATIVE
+// The host's declaration (unsigned long); colors parsed here fit in 32 bits.
+#include <cstdlib>
+#else
 extern "C" u32 strtoul(const char*, char**, int);
+#endif
 
 namespace {
     u32 str2Color(const char* pStr) NO_INLINE {
