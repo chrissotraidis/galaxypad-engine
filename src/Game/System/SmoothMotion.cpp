@@ -57,6 +57,24 @@ std::thread::id gFrameThread;
 unsigned long gReportSteps = 0, gReportBetween = 0;
 std::chrono::steady_clock::time_point gReportStart;
 
+// Budget: an in-between frame is drawn only while the step, with it, still fits
+// in a 60 Hz frame; the game's speed comes first. Busy time is the step's work
+// before the retrace wait. Hysteresis keeps it from switching every few steps.
+using Clock = std::chrono::steady_clock;
+constexpr double kPauseAboveMs = 16.0;
+constexpr double kResumeBelowMs = 15.0;
+constexpr double kSmoothing = 0.05;
+Clock::time_point gStepStart, gBetweenStart;
+double gBetweenMs = 0.0;     // this step's in-between frame (0 if none)
+double gBusyMs = 8.0;        // average busy time without the in-between frame
+double gBetweenRatio = 0.8;  // average in-between cost / busy time without it
+bool gWithinBudget = true;
+unsigned long gReportSwitches = 0;
+
+double msSince(Clock::time_point start) {
+    return std::chrono::duration< double, std::milli >(Clock::now() - start).count();
+}
+
 void record(Pose& rPose, const Mtx m) {
     if (rPose.curStep != gStep) {
         PSMTXCopy(rPose.cur, rPose.prev);
@@ -133,6 +151,9 @@ void report() {
     const double seconds = std::chrono::duration< double >(std::chrono::steady_clock::now() - gReportStart).count();
     std::fprintf(stderr, "Petari Smooth Motion: %lu steps, %lu in-between frames in %.2f s: %.1f steps/s, %.1f presents/s\n",
                  gReportSteps, gReportBetween, seconds, gReportSteps / seconds, (gReportSteps + gReportBetween) / seconds);
+    std::fprintf(stderr, "Petari Smooth Motion budget: step %.1f ms + in-between %.1f ms (%s), %lu switches\n", gBusyMs,
+                 gBusyMs * gBetweenRatio, gWithinBudget ? "drawing" : "paused: over budget", gReportSwitches);
+    gReportSwitches = 0;
     gReportSteps = 0;
     gReportBetween = 0;
 }
@@ -174,6 +195,8 @@ void beginStep() {
     }
     report();
     gFrameThread = std::this_thread::get_id();
+    gStepStart = Clock::now();
+    gBetweenMs = 0.0;
     gStep++;
     gViewStage = false;
     if ((gStep & 255) == 0) {
@@ -189,8 +212,16 @@ bool beginBetween() {
     if (!gActive || !gViewStage || !MR::isExistSceneObj(SceneObj_CameraContext)) {
         return false;
     }
+    const double predicted = gBusyMs * (1.0 + gBetweenRatio);
+    if (gWithinBudget ? predicted > kPauseAboveMs : predicted < kResumeBelowMs) {
+        gWithinBudget = !gWithinBudget;
+        gReportSwitches++;
+    }
     gContext = MR::getSceneObj< CameraContext >(SceneObj_CameraContext);
     record(gCamera, gContext->mView.mMtx);
+    if (!gWithinBudget) {
+        return false;
+    }
     Mtx mid;
     if (!halfway(gCamera, 1e30f, mid)) {
         return false;
@@ -209,6 +240,7 @@ bool beginBetween() {
     PSMTXCopy(mid, gContext->mView.mMtx);
     PSMTXInverse(mid, gContext->mViewInv.mMtx);
     gBetween = true;
+    gBetweenStart = Clock::now();
     reView();
     gReportBetween++;
     return true;
@@ -222,6 +254,18 @@ void endBetween() {
     gContext->mViewInv = gSavedInv;
     gBetween = false;
     reView();
+    gBetweenMs = msSince(gBetweenStart);
+}
+
+void endStep() {
+    if (!gActive) {
+        return;
+    }
+    const double busy = msSince(gStepStart) - gBetweenMs;
+    gBusyMs += kSmoothing * (busy - gBusyMs);
+    if (gBetweenMs > 0.0 && busy > 0.5) {
+        gBetweenRatio += kSmoothing * (gBetweenMs / busy - gBetweenRatio);
+    }
 }
 
 }  // namespace SmoothMotion

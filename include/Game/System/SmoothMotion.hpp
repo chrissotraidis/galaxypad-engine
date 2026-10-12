@@ -20,6 +20,9 @@ void noteViewStage();
 bool beginBetween();
 // After the in-between frame is presented: restores the step's own view.
 void endBetween();
+// GameSystem::frameLoop, before the retrace wait: the step's busy time, which
+// decides whether the next in-between frame fits in the 60 Hz budget.
+void endStep();
 }  // namespace SmoothMotion
 
 #endif

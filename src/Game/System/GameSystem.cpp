@@ -366,6 +366,7 @@ void GameSystem::frameLoop() {
 #ifdef PETARI_NATIVE
     // Host window, events and Aurora frame boundary (native/app).
     petari_host_frame_seam();
+    SmoothMotion::endStep();
 #endif
     MainLoopFramework::sManager->waitForRetrace();
 #ifdef PETARI_NATIVE
