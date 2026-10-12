@@ -150,6 +150,18 @@ void requestQuit() {
     Platform::Power::pressPowerButton();
 }
 
+int widescreen(int value) {
+    Platform::SC::Settings settings = Platform::SC::current();
+    if (value >= 0 && settings.aspectRatio != (value ? 1 : 0)) {
+        settings.aspectRatio = value ? 1 : 0;
+        std::string error;
+        if (!Platform::SC::set(settings, &error) || !Platform::SC::save(&error)) {
+            std::fprintf(stderr, "petari: aspect ratio: %s\n", error.c_str());
+        }
+    }
+    return Platform::SC::current().aspectRatio == 1 ? 1 : 0;
+}
+
 void setBeforeExit(void (*hook)()) {
     gBeforeExit.store(hook);
 }

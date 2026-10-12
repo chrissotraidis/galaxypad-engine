@@ -3,6 +3,7 @@
 #include <aurora/aurora.h>
 #include <aurora/event.h>
 
+#include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
 #include <atomic>
@@ -44,6 +45,8 @@ PresentHooks gPresent;
 CpuRelease gRelease;
 SDL_Window* gWindow = nullptr;
 int gQuitRequests = 0;
+std::atomic<bool> gPaused{false};
+std::atomic<std::uint64_t> gPresented{0};
 Rect gLastImage;
 float gLastWindowWidth = -1.0f;
 float gLastWindowHeight = -1.0f;
@@ -595,6 +598,14 @@ void reportFrameStats() {
     std::fflush(stderr);
 }
 
+void setPaused(bool paused) {
+    gPaused.store(paused);
+}
+
+std::uint64_t presentedFrames() {
+    return gPresented.load(std::memory_order_relaxed);
+}
+
 }  // namespace Seam
 
 }  // namespace PetariNative::App
@@ -654,6 +665,13 @@ extern "C" void petari_host_frame_seam(void) {
     TouchControls::draw();
     const std::uint64_t endStart = Telemetry::nowNs();
     aurora_end_frame();
+    gPresented.fetch_add(1, std::memory_order_relaxed);
+    // GalaxyPad's pause: the frame stays on screen and the CPU stays released,
+    // so the app's own menus keep working (window events run its UI).
+    while (gPaused.load(std::memory_order_relaxed)) {
+        handleEvents(aurora_update());
+        SDL_DelayNS(8000000);
+    }
 
     const std::uint64_t beginStart = Telemetry::nowNs();
     handleEvents(aurora_update());
@@ -685,6 +703,7 @@ extern "C" void petari_host_present_between(void) {
     PetariNative::HomeMenu::drawImGuiOverlay(image.x, image.y, image.width, image.height);
     TouchControls::draw();
     aurora_end_frame();
+    gPresented.fetch_add(1, std::memory_order_relaxed);
     PetariNative::LatencyProbe::betweenPresent.store(false, std::memory_order_relaxed);
     handleEvents(aurora_update());
     openFrame();

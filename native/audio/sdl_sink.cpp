@@ -34,6 +34,8 @@
 
 namespace {
 SDL_AudioStream* device;
+// Output volume (setGain), 0..1; applied when the device opens and at once after.
+std::atomic<float> gain{1.0f};
 bool initialized;
 std::atomic<bool> running{false};
 std::atomic<std::uint64_t> submitted{0};
@@ -389,6 +391,8 @@ void start(std::uint32_t rate, void*) {
             std::abort();
         }
         std::fputs("PETARI SMOKE AUDIO: output gain 0; realtime DSP/DMA and device callback retained\n", stderr);
+    } else if (device && gain.load() != 1.0f) {
+        SDL_SetAudioStreamGain(device, gain.load());
     }
     if (device) {
         // The elastic wait limit from the device's actual request size.
@@ -426,6 +430,10 @@ void shutdown() {
     Platform::Audio::shutdown();
 }
 bool outputMuted() { return device && SDL_GetAudioStreamGain(device) == 0.0f; }
+void setGain(float value) {
+    gain.store(std::clamp(value, 0.0f, 1.0f));
+    if (device && !SDL_GetHintBoolean("PETARI_SMOKE_BACKGROUND", false)) SDL_SetAudioStreamGain(device, gain.load());
+}
 bool active() { return running.load() && !failed.load(); }
 std::uint64_t submittedFrames() { return submitted.load(); }
 }

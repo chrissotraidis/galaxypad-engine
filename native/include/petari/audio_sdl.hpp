@@ -7,5 +7,7 @@ void install();
 void shutdown();
 bool active();
 bool outputMuted();
+// Output volume, 0 (silent) to 1 (full); GalaxyPad's Audio menu. Any time.
+void setGain(float value);
 std::uint64_t submittedFrames();
 }

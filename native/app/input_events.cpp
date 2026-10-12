@@ -5,6 +5,8 @@
 
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -144,6 +146,15 @@ void countPhysical(const SDL_Event& event) {
 }  // namespace
 
 bool input(const SDL_Event& event) {
+    // GalaxyPad (PETARI_SDL_GAMEPADS=0) reads game controllers itself, with its
+    // own mapping and pointer, and passes them in like its touch controls.
+    static const bool sdlGamepads = [] {
+        const char* value = std::getenv("PETARI_SDL_GAMEPADS");
+        return value == nullptr || std::strcmp(value, "0") != 0;
+    }();
+    if (!sdlGamepads && event.type >= SDL_EVENT_JOYSTICK_AXIS_MOTION && event.type < SDL_EVENT_FINGER_DOWN) {
+        return true;
+    }
     if (SmokeBackground::enabled && (SmokeBackground::physicalEvent(event.type) ||
         event.type == SDL_EVENT_WINDOW_FOCUS_LOST || event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)) {
         return true;

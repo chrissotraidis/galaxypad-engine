@@ -5,6 +5,7 @@
 // headers (Aurora's dolphin/ GX headers and the SDK's revolution/ headers
 // declare the same names).
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 
@@ -39,6 +40,9 @@ void startOS();
 [[noreturn]] void runGame();
 // The window's close request, as the console's power button.
 void requestQuit();
+// The game's 16:9 setting (SC aspect ratio), saved to the settings file; the
+// game reads it when it starts. value < 0 only reads it. Returns the setting.
+int widescreen(int value);
 // Runs once on the game thread after the game has shut down, before the
 // process exits (GalaxyPad's engine switch, engine_entry.mm). Any thread.
 void setBeforeExit(void (*hook)());
@@ -97,6 +101,11 @@ void openFirstFrame();
 void setPhaseProbe(FrameStats::Phase (*probe)());
 // The frame-time statistics so far; null before openFirstFrame.
 const FrameStats::Recorder* frameStats();
+// GalaxyPad's pause: while set, the seam holds the game after presenting its
+// frame and keeps handling window events. Any thread.
+void setPaused(bool paused);
+// Frames presented so far, in-between Smooth Motion frames included. Any thread.
+std::uint64_t presentedFrames();
 // At exit: prints the frame-time summary and writes PETARI_FRAME_CSV, if
 // enabled (PETARI_TRACE_BOOT, PETARI_FRAME_STATS or PETARI_FRAME_CSV). Once.
 void reportFrameStats();

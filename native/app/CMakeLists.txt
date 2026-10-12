@@ -143,10 +143,7 @@ if(NOT _petari_app_standalone)
         set_source_files_properties(engine_entry.mm PROPERTIES COMPILE_DEFINITIONS "${_petari_sdl_renames}")
         target_link_libraries(GalaxyPadEngine PRIVATE petari_app_host petari_app_platform aurora::core SQLite::SQLite3
             compression "-framework Foundation" "-framework UIKit")
-        target_link_options(GalaxyPadEngine PRIVATE "-Wl,-exported_symbol,_galaxypad_engine_main"
-            "-Wl,-exported_symbol,_galaxypad_engine_input" "-Wl,-exported_symbol,_galaxypad_engine_image"
-            "-Wl,-exported_symbol,_galaxypad_engine_started" "-Wl,-exported_symbol,_galaxypad_engine_switch_to_original"
-            "-Wl,-dead_strip")
+        target_link_options(GalaxyPadEngine PRIVATE "-Wl,-exported_symbol,_galaxypad_engine_*" "-Wl,-dead_strip")
         set_target_properties(GalaxyPadEngine PROPERTIES
             FRAMEWORK TRUE
             OUTPUT_NAME GalaxyPadEngine

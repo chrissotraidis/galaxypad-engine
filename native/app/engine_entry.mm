@@ -1,8 +1,9 @@
 // GalaxyPad engine framework entry (iOS). GalaxyPad links GalaxyPadEngine.framework
-// next to its Original engine and calls galaxypad_engine_main() from its own main()
+// next to its Old engine and calls galaxypad_engine_main() from its own main()
 // when the New engine is selected. GalaxyPad then draws its own touch controls and
-// menu over the game (PETARI_TOUCH_CONTROLS=0) and feeds them in through the
-// galaxypad_engine_* functions below, the framework's only other exports.
+// menu over the game (PETARI_TOUCH_CONTROLS=0), reads game controllers itself
+// (PETARI_SDL_GAMEPADS=0), and drives the game through the galaxypad_engine_*
+// functions below, the framework's only exports.
 //
 // SDL's Objective-C classes are renamed with a GPE_ prefix in this build
 // (native/app/CMakeLists.txt), because the Original engine links its own SDL and
@@ -19,12 +20,17 @@
 
 #import <UIKit/UIKit.h>
 
+#include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <mutex>
+#include <string>
 
 #include "host.hpp"
+#include "petari/audio_sdl.hpp"
 #include "petari/home_menu.hpp"
 #include "petari/input.hpp"
+#include "petari/mods.hpp"
 
 extern "C" int aurora_main(int argc, char* argv[]);  // app_main.cpp (aurora/main.h renames main)
 
@@ -168,4 +174,51 @@ extern "C" __attribute__((visibility("default"))) int galaxypad_engine_started(v
 extern "C" __attribute__((visibility("default"))) void galaxypad_engine_switch_to_original(void) {
     App::Host::setBeforeExit(PetariNative::HomeMenu::switchToOriginalEngine);
     App::Host::requestQuit();
+}
+
+// Stop Game: the game closes like the Home menu's Quit.
+extern "C" __attribute__((visibility("default"))) void galaxypad_engine_quit(void) {
+    App::Host::requestQuit();
+}
+
+namespace {
+std::atomic<float> gVolume{1.0f};
+std::atomic<bool> gPausedAudio{false};
+}  // namespace
+
+// GalaxyPad's menus and pause screen: holds the game on its current frame, silent.
+extern "C" __attribute__((visibility("default"))) void galaxypad_engine_pause(int paused) {
+    App::Seam::setPaused(paused != 0);
+    gPausedAudio.store(paused != 0);
+    PetariNative::AudioSDL::setGain(paused ? 0.0f : gVolume.load());
+    if (paused) Input::focusChanged(false);  // nothing stays held while paused
+}
+
+// Audio menu: 0 (mute) to 1.
+extern "C" __attribute__((visibility("default"))) void galaxypad_engine_set_volume(float volume) {
+    gVolume.store(volume);
+    if (!gPausedAudio.load()) PetariNative::AudioSDL::setGain(volume);
+}
+
+// Display menu, Aspect Ratio: 1 for 16:9, 0 for 4:3, saved for the next start;
+// a negative value only reads the setting.
+extern "C" __attribute__((visibility("default"))) int galaxypad_engine_widescreen(int value) {
+    return App::Host::widescreen(value);
+}
+
+// Display menu, Smooth Motion (native/MODS.md): 1 on, 0 off, applied at once and
+// saved in mods.txt; a negative value only reads it.
+extern "C" __attribute__((visibility("default"))) int galaxypad_engine_smooth_motion(int value) {
+    using PetariNative::Mods::Mod;
+    if (value >= 0 && PetariNative::Mods::enabled(Mod::SmoothMotion) != (value != 0)) {
+        PetariNative::Mods::setEnabled(Mod::SmoothMotion, value != 0);
+        std::string error;
+        if (!PetariNative::Mods::save(&error)) std::fprintf(stderr, "petari: mods: %s\n", error.c_str());
+    }
+    return PetariNative::Mods::enabled(Mod::SmoothMotion) ? 1 : 0;
+}
+
+// Frames presented so far (the FPS counter).
+extern "C" __attribute__((visibility("default"))) std::uint64_t galaxypad_engine_presented_frames(void) {
+    return App::Seam::presentedFrames();
 }
