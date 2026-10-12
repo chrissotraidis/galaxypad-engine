@@ -8,6 +8,7 @@ unmodified game and every test run behave exactly as before.
 | Collect visible Star Bits (`CollectStarBits`) | G, controller L3 (left stick click) | Every Star Bit on screen flies to Mario, as if the pointer had touched each one |
 | Fire a Star Bit at the nearest enemy (`ShootEnemy`) | V (no controller default) | Shoots one Star Bit at the nearest enemy on screen |
 | Odyssey movement (`OdysseyMovement`) | none (a mode; it uses the normal Jump, Crouch and Spin buttons) | Mario moves with Super Mario Odyssey's physics and moveset: see "Odyssey movement" below. |
+| Smooth Motion (`SmoothMotion`) | none (a display mode) | On 120 Hz screens, shows 120 frames a second while the game keeps its 60 steps: see "Smooth Motion" below. |
 
 ## Turning mods on
 
@@ -28,6 +29,23 @@ The buttons are remappable in `controls.txt` like any other action:
 `ModCollectStarBits=Key:G,Pad:LeftStick` and `ModShootEnemy=Key:V`
 (see native/CONTROLS.md for input names). A button press while its mod is
 off does nothing and is not remembered.
+
+## Smooth Motion
+
+The game still runs 60 steps a second. With Smooth Motion on, each step is
+drawn twice: first halfway between the previous step and this one, then the
+step itself, so a 120 Hz screen (ProMotion iPad, ProMotion Mac) shows 120
+frames a second. The halfway frame re-runs only the 3D view stage, with the
+camera and each model's position and rotation blended; joint animation,
+particles and the HUD show the step's own state. Camera cuts and teleports
+are shown as they are. On screens under 110 Hz the mod has no effect, since
+two frames per step would halve the game's speed there.
+
+`PETARI_SMOOTH_MOTION=1` or `0` overrides the mod and the screen check for
+one run (tests); `PETARI_SMOOTH_MOTION_MODELS=0` blends only the camera
+(a diagnostic: Mario then visibly judders against the scenery). The log reports
+steps and presents per second every 600 steps. Smooth Motion needs the
+low-latency frame order (`PETARI_LOW_LATENCY=1`, the iOS default).
 
 ## Odyssey movement
 
