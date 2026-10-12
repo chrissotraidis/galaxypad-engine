@@ -44,8 +44,8 @@ two frames per step would halve the game's speed there.
 `PETARI_SMOOTH_MOTION=1` or `0` overrides the mod and the screen check for
 one run (tests); `PETARI_SMOOTH_MOTION_MODELS=0` blends only the camera
 (a diagnostic: Mario then visibly judders against the scenery). The log reports
-steps and presents per second every 600 steps. Smooth Motion needs the
-low-latency frame order (`PETARI_LOW_LATENCY=1`, the iOS default).
+steps and presents per second every 600 steps. While it is on, each step is
+drawn after its update (the `PETARI_LOW_LATENCY=1` order, the iOS default).
 
 ## Odyssey movement
 

@@ -329,7 +329,8 @@ void GameSystem::frameLoop() {
         const char* value = std::getenv("PETARI_LOW_LATENCY");
         return value != nullptr && value[0] == '1';
     }();
-    if (lowLatency) {
+    // Smooth Motion draws after the update as well (its in-between frame needs this step's state).
+    if (lowLatency || SmoothMotion::enabled()) {
         // Smooth Motion (PETARI_SMOOTH_MOTION=1): draw and present a frame halfway
         // between the previous step and this one first, then the step itself.
         SmoothMotion::beginStep();
