@@ -1,3 +1,20 @@
+# GalaxyPad engine
+
+The game engine behind [GalaxyPad](https://github.com/chrissotraidis/galaxypad)'s
+New engine setting on iPhone and iPad. It is a copy of
+[MacioGalaxy](https://github.com/classicrob/MacioGalaxy) (CC0) by classicrob,
+which builds the [Petari](https://github.com/SMGCommunity/Petari) decompilation
+as a native app, with GalaxyPad's changes added: the iOS build, touch controls,
+Smooth Motion at 120 FPS, an update-then-draw frame order for lower input
+latency, and a converter for Wii-format saves.
+
+This repository is independent of MacioGalaxy and Petari. Report problems with it
+to GalaxyPad, not to either project. It is based on MacioGalaxy commit
+`4bbf2af23d694a835652f7ac218034cb3cebade4`; GalaxyPad's changes are the commits
+after it. No game data is included. MacioGalaxy's own README follows.
+
+---
+
 # Petari for Apple Silicon (unofficial native port)
 
 A native macOS (Apple Silicon) build of **Super Mario Galaxy**, made from the
