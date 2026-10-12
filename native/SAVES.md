@@ -91,6 +91,18 @@ but his separate adventure has no collected stars yet. Grand Finale is reached
 through its observatory NPC, rather than one of the six dome maps. Hungry Luma
 and other observatory destinations also use their own entrances.
 
+## Bringing a Wii save in
+
+A Wii (or Dolphin) `GameData.bin` has the same layout as the native save, in
+big-endian order. `native/tools/wii_save_to_native.py WII_FILE NATIVE_FILE`
+converts one; the native game then loads it like its own. GalaxyPad's New engine
+does the same in the app: `--import-wii-save FILE` copies a Wii save in when the
+user folder has no save yet. It first keeps a byte-checked copy of the Wii file in
+`wii-save-import/`, converts it, converts the result back and requires the
+original bytes, and only then writes `NAND/title/00010000/524d4745/data/GameData.bin`.
+The Wii file is never written. On GalaxyPad's 121-star save the app's conversion and
+the script's are byte-identical.
+
 ## Fix a save made before 2026-10-01 (Hungry Lumas)
 
 Saves made from these variants before 2026-10-01 have the stars but not the

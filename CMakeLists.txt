@@ -226,6 +226,7 @@ if(PETARI_BUILD_GX_PROBE)
     foreach(_petari_test petari_j3d_material_anm_tests petari_app_smoke_storage_tests petari_app_smoke_domes_tests
             petari_app_seam_tests petari_app_input_events_tests petari_app_smoke_tests petari_app_smoke_stage_tests
             petari_app_launch_stage_tests
+            petari_wii_save_import_tests
             # Asset tests (registered only when build/game-data exists), also EXCLUDE_FROM_ALL:
             petari_j3d_load_tests petari_j3d_anim_load_tests petari_jpa_load_tests petari_game_data_tests
             petari_host_image_heap_tests petari_file_cache_heap_tests petari_file_cache_demand_tests

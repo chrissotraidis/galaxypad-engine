@@ -51,7 +51,8 @@ if(NOT _petari_app_standalone)
     target_link_libraries(petari_app_host PUBLIC aurora::core petari_input_sdl3 petari_home_menu_imgui
         petari_host_runtime petari_app_smoke)
 
-    add_executable(petari MACOSX_BUNDLE app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp)
+    add_executable(petari MACOSX_BUNDLE app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp
+        wii_save_import.cpp)
     target_link_libraries(petari PRIVATE petari_app_host petari_app_platform aurora::core aurora::main SQLite::SQLite3)
     # A real bundle identity: macOS uses it for the Dock/menu name, window state,
     # permissions and app identification. User data stays at the explicit path in app_main.
@@ -137,7 +138,7 @@ if(NOT _petari_app_standalone)
         target_compile_definitions(SDL3-static PRIVATE ${_petari_sdl_renames})
 
         add_library(GalaxyPadEngine SHARED app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp
-            engine_entry.mm)
+            wii_save_import.cpp engine_entry.mm)
         set_source_files_properties(engine_entry.mm PROPERTIES COMPILE_DEFINITIONS "${_petari_sdl_renames}")
         target_link_libraries(GalaxyPadEngine PRIVATE petari_app_host petari_app_platform aurora::core SQLite::SQLite3
             "-framework Foundation" "-framework UIKit")
@@ -169,6 +170,11 @@ if(BUILD_TESTING)
         ${PETARI_REPO_ROOT}/native/home_menu/launch_stage.cpp)
     target_include_directories(petari_app_launch_stage_tests PRIVATE ${PETARI_REPO_ROOT}/native/home_menu/include)
     add_test(NAME native_app_launch_stage COMMAND petari_app_launch_stage_tests)
+    # Wii-format save conversion (GalaxyPad's save copy into its New engine).
+    add_executable(petari_wii_save_import_tests ${PETARI_REPO_ROOT}/native/tests/wii_save_import_tests.cpp
+        wii_save_import.cpp)
+    target_compile_features(petari_wii_save_import_tests PRIVATE cxx_std_17)
+    add_test(NAME native_wii_save_import COMMAND petari_wii_save_import_tests)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME native_stage_sweep_parallel COMMAND "${Python3_EXECUTABLE}" "${PETARI_REPO_ROOT}/native/tests/stage_sweep_parallel_tests.py")
     add_test(NAME native_observatory_fixture COMMAND "${Python3_EXECUTABLE}" "${PETARI_REPO_ROOT}/native/tests/test_fixture_tests.py")
