@@ -9,6 +9,7 @@
 
 #include "host.hpp"
 #include "smoke_background.hpp"
+#include "touch_controls.hpp"
 #include "petari/input.hpp"
 #include "petari/input_sdl3.hpp"
 
@@ -140,6 +141,12 @@ bool input(const SDL_Event& event) {
         event.type == SDL_EVENT_WINDOW_FOCUS_LOST || event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)) {
         return true;
     }
+    if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+        TouchControls::releaseAll();
+    }
+    if (TouchControls::handle(event)) {
+        return true;
+    }
     countPhysical(event);
     return Input::SDL3::handleEvent(event);
 }
@@ -149,6 +156,7 @@ Smoke::PhysicalInputs physicalInputs() {
 }
 
 void setImage(const Rect& image, float windowWidth, float windowHeight) {
+    TouchControls::setWindow(windowWidth, windowHeight);
     Input::Viewport viewport;
     viewport.windowWidth = windowWidth;
     viewport.windowHeight = windowHeight;
@@ -169,6 +177,18 @@ void pressButton(int button, bool down) {
         return;
     }
     const Input::Action action = kActions[button];
+    if (TouchControls::smokeViaTouch()) {
+        using S = TouchControls::Synthetic;
+        static const int kTouch[] = {static_cast<int>(S::A),        static_cast<int>(S::B),     static_cast<int>(S::StickUp),
+                                     static_cast<int>(S::StickDown), static_cast<int>(S::Plus),  static_cast<int>(S::Minus),
+                                     static_cast<int>(S::StickLeft), static_cast<int>(S::StickRight),
+                                     static_cast<int>(S::Spin),      -1,                         -1,
+                                     static_cast<int>(S::Z)};
+        if (kTouch[button] >= 0) {
+            TouchControls::synthetic(static_cast<S>(kTouch[button]), down);
+            return;
+        }
+    }
     const Input::Bindings bindings = Input::bindings();
     const auto& inputs = bindings.inputs(action);
     if (inputs.empty()) {
@@ -188,6 +208,10 @@ void assertFocus() {
 }
 
 void movePointer(float x, float y) {
+    if (TouchControls::smokeViaTouch()) {
+        TouchControls::syntheticPointer(x, y);
+        return;
+    }
     Input::mouseMoved(x, y);
 }
 

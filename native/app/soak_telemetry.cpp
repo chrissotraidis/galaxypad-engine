@@ -8,7 +8,10 @@
 
 #include <dlfcn.h>
 #include <pthread.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
 #include <libproc.h>
+#endif
 #include <mach/mach.h>
 #include <malloc/malloc.h>
 #include <unistd.h>
@@ -94,6 +97,7 @@ int threadCount() {
 }
 
 int fdCount() {
+#if TARGET_OS_OSX
     const int bytes = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nullptr, 0);
     if (bytes <= 0) {
         return -1;
@@ -101,6 +105,9 @@ int fdCount() {
     std::vector<proc_fdinfo> fds(static_cast<std::size_t>(bytes) / sizeof(proc_fdinfo) + 16);
     const int used = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, fds.data(), static_cast<int>(fds.size() * sizeof(proc_fdinfo)));
     return used <= 0 ? -1 : used / static_cast<int>(sizeof(proc_fdinfo));
+#else
+    return -1;
+#endif
 }
 
 double percentile(std::vector<float>& sorted, double p) {

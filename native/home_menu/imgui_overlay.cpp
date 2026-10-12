@@ -16,6 +16,9 @@
 #endif
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <TargetConditionals.h>
 #include <vector>
 #include <array>
 #include <cfloat>
@@ -26,6 +29,20 @@ namespace PetariNative::HomeMenu {
 namespace App = PetariNative::App;
 
 namespace {
+
+// The same switch as the touch controls (PETARI_TOUCH_CONTROLS, on by default on iOS).
+bool touchScreen() {
+    static const bool on = [] {
+        const char* value = std::getenv("PETARI_TOUCH_CONTROLS");
+        if (value && *value) return std::strcmp(value, "0") != 0;
+#if TARGET_OS_IPHONE
+        return true;
+#else
+        return false;
+#endif
+    }();
+    return on;
+}
 
 struct ImageSpace {
     float x, y, width, height;
@@ -160,7 +177,9 @@ void drawImGuiOverlay(float imageX, float imageY, float imageWidth, float imageH
         sHint = Input::titleHint(Input::bindings());
     }
     sPromptWasActive = prompt;
-    if (prompt && !view.visible) {
+    // Keyboard hints mean nothing on a touch screen, where the on-screen A and B
+    // are visible.
+    if (prompt && !view.visible && !touchScreen()) {
         drawTitleHint(sHint.c_str(), imageX, imageY, imageWidth, imageHeight);
     }
 #endif
@@ -297,7 +316,9 @@ bool drawPipelinePreparation(const PipelinePreparationView& view, float width, f
     centeredText(list, font, 20 * scale, contentWidth, ImVec2(center, height * 0.585f),
                  color(0.65f, 0.76f, 0.91f, 1), estimate);
     centeredText(list, font, 22 * scale, contentWidth, ImVec2(center, height * 0.70f),
-                 color(0.94f, 0.89f, 0.65f, 1), "Press Return to start now (the rest keeps preparing in the background)");
+                 color(0.94f, 0.89f, 0.65f, 1),
+                 touchScreen() ? "Tap to start now (the rest keeps preparing in the background)"
+                               : "Press Return to start now (the rest keeps preparing in the background)");
     centeredText(list, font, 18 * scale, contentWidth, ImVec2(center, height * 0.75f),
                  color(0.65f, 0.76f, 0.91f, 1), "Controller A / Start also works");
     return true;

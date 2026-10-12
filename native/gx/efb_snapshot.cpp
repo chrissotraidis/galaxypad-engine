@@ -14,6 +14,7 @@
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <cstring>
 #include <string>
 
@@ -80,8 +81,9 @@ void maybeDump(std::uint64_t ticket, const Snapshot& snapshot) {
     }
     if (!listed) return;
     if (!directoryMade) {
-        std::string command = "mkdir -p '" + config.dir + "'";
-        if (std::system(command.c_str()) != 0) return;
+        std::error_code error;
+        std::filesystem::create_directories(config.dir, error);
+        if (error) return;
         directoryMade = true;
     }
     std::vector<unsigned char> rgb;

@@ -26,6 +26,10 @@ struct Paths {
 namespace Host {
 // Before OSInit and the window: crash reports, disc, NAND, settings store.
 bool preparePlatform(const Paths& paths, std::string* error);
+// After the window exists, before startOS: for a user folder without a
+// settings file, chooses the game's 4:3 mode on screens narrower than 1.6:1
+// (iPad) and 16:9 otherwise. An existing settings file is never changed.
+void suggestAspect(float longSideOverShortSide);
 // On the main thread, after the window exists: OSInit (binds this thread as
 // the default OS thread), VI on its own retrace clock with the renderer
 // hooks, the exit handler, and the audio sink.

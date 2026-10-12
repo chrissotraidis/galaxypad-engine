@@ -100,7 +100,8 @@ bool preparePipelines(SDL_Window* window) {
                 (input.key.scancode == SDL_SCANCODE_RETURN || input.key.scancode == SDL_SCANCODE_KP_ENTER);
             const bool button = input.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                 (input.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH || input.gbutton.button == SDL_GAMEPAD_BUTTON_START);
-            if (key || button) skipped = true;
+            const bool tap = input.type == SDL_EVENT_FINGER_DOWN;
+            if (key || button || tap) skipped = true;
         }
         mark(PrepTiming::Events);
         if (skipped) break;

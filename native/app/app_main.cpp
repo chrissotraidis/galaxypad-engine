@@ -20,6 +20,7 @@
 #include <cstring>
 #include <string>
 #include <fstream>
+#include <TargetConditionals.h>
 #include <petari/test_fixture.hpp>
 #include <petari/unlocked_save.hpp>
 #include <petari/pipeline_startup.hpp>
@@ -33,6 +34,7 @@
 #include "host.hpp"
 #include "smoke_background.hpp"
 #include "smoke_storage.hpp"
+#include "touch_controls.hpp"
 #include "pipeline_cache_dir.hpp"
 #include "latency_report.hpp"
 #include <petari/launch_stage.hpp>
@@ -40,6 +42,7 @@
 #include <petari/host_allocation.hpp>
 
 extern "C" void petari_gx_pipeline_background_begin();
+extern "C" void VISetFrameBufferScale(float scale);
 extern "C" void petari_gx_pipeline_set_gameplay(bool gameplay);
 
 namespace App = PetariNative::App;
@@ -99,6 +102,16 @@ bool stageFixtureFromEnvironment() {
     return true;
 }
 
+// "~/..." is relative to HOME. On iOS HOME is the app's data container,
+// whose path is not known to the tool that launches the app.
+std::filesystem::path expandHome(const char* argument) {
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && std::strncmp(argument, "~/", 2) == 0) {
+        return std::filesystem::path(home) / (argument + 2);
+    }
+    return argument;
+}
+
 bool resolvePaths(int argc, char** argv, App::Paths* paths) {
     bool fixture = false;
     bool stageFixture = false;
@@ -119,9 +132,9 @@ bool resolvePaths(int argc, char** argv, App::Paths* paths) {
             launchScenario = static_cast<int>(value);
             launchScenarioGiven = true;
         } else if (std::strcmp(argv[i], "--disc") == 0 && i + 1 < argc) {
-            paths->disc = argv[++i];
+            paths->disc = expandHome(argv[++i]);
         } else if (std::strcmp(argv[i], "--user") == 0 && i + 1 < argc) {
-            paths->user = argv[++i];
+            paths->user = expandHome(argv[++i]);
         } else if (std::strcmp(argv[i], "--test-fixture") == 0 && i + 1 < argc &&
                    std::strcmp(argv[i + 1], "observatory") == 0) {
             ++i;
@@ -200,6 +213,16 @@ bool resolvePaths(int argc, char** argv, App::Paths* paths) {
     }
     if (paths->disc.empty()) {
         const char* env = std::getenv("PETARI_GAME_DIR");
+#if TARGET_OS_IPHONE
+        // iOS: the disc is in the app's Documents folder (HOME is the app container).
+        const char* home = std::getenv("HOME");
+        if ((env == nullptr || env[0] == '\0') && home != nullptr) {
+            paths->disc = std::filesystem::path(home) / "Documents/RMGE01";
+        }
+#endif
+    }
+    if (paths->disc.empty()) {
+        const char* env = std::getenv("PETARI_GAME_DIR");
         paths->disc = env != nullptr && env[0] != '\0' ? std::filesystem::path(env)
                                                       : std::filesystem::current_path() / "build/game-data/RMGE01";
     }
@@ -225,12 +248,24 @@ bool resolvePaths(int argc, char** argv, App::Paths* paths) {
     return true;
 }
 
+// iOS: the first launch for a user folder prepares every known pipeline behind
+// the progress screen (about three minutes on an iPhone 14), which fills the
+// system's Metal shader cache. Later launches start at once and rebuild from that
+// cache in the background. The marker records a completed preparation.
+std::filesystem::path gPreparedMarker;
+
 bool prepareKnownPipelines(SDL_Window* window) {
     // The blocking preparation screen is opt-in (PETARI_PIPELINE_GLOBAL_PRECOMPILE=1).
     // By default the game starts at once; the scene being loaded compiles first and
     // everything else compiles in the background while playing.
     if (!petari_gx_pipeline_full_preparation()) return true;
-    return App::preparePipelines(window);
+    const bool ok = App::preparePipelines(window);
+    std::uint32_t total = 0, pending = 0, failed = 0;
+    petari_gx_pipeline_preparation_status(&total, &pending, &failed);
+    if (ok && pending == 0 && failed == 0 && !gPreparedMarker.empty()) {
+        std::ofstream(gPreparedMarker) << total << " pipelines prepared\n";
+    }
+    return ok;
 }
 
 // Frame classification also tells the shader pool when speculative compiles
@@ -370,6 +405,15 @@ int main(int argc, char** argv) {
         usage();
         return 2;
     }
+#if TARGET_OS_IPHONE
+    if (std::getenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE") == nullptr) {
+        gPreparedMarker = paths.user / ".petari-pipelines-prepared";
+        std::error_code ec;
+        if (!std::filesystem::exists(gPreparedMarker, ec)) {
+            setenv("PETARI_PIPELINE_GLOBAL_PRECOMPILE", "1", 1);
+        }
+    }
+#endif
 
     std::string error;
     App::SmokeBackground::enabled = App::SmokeBackground::requested(
@@ -408,6 +452,10 @@ int main(int argc, char** argv) {
     }
 
     SDL_SetHintWithPriority("PETARI_SMOKE_BACKGROUND", App::SmokeBackground::enabled ? "1" : "0", SDL_HINT_OVERRIDE);
+    if (App::TouchControls::enabled()) {
+        // Touches drive the on-screen controls; do not also turn them into mouse clicks.
+        SDL_SetHintWithPriority(SDL_HINT_TOUCH_MOUSE_EVENTS, "0", SDL_HINT_OVERRIDE);
+    }
     if (App::SmokeBackground::enabled) {
         SDL_SetHintWithPriority(SDL_HINT_MAC_BACKGROUND_APP, "1", SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0", SDL_HINT_OVERRIDE);
@@ -485,6 +533,15 @@ int main(int argc, char** argv) {
         aurora_shutdown();
         return 1;
     }
+    // PETARI_RENDER_SCALE=N renders at N times the game's own framebuffer size
+    // (aspect-corrected) instead of the window's native pixel size.
+    if (const char* scale = std::getenv("PETARI_RENDER_SCALE"); scale != nullptr && *scale != '\0') {
+        const float value = std::strtof(scale, nullptr);
+        if (value > 0.f && value <= 8.f) {
+            VISetFrameBufferScale(value);
+            std::fprintf(stderr, "petari: render scale %.2f of the game framebuffer\n", value);
+        }
+    }
     if (App::SmokeBackground::enabled) {
         auto* window = static_cast<SDL_Window*>(info.window);
         if (!SDL_SetWindowFocusable(window, false)) {
@@ -521,6 +578,12 @@ int main(int argc, char** argv) {
     App::Seam::attach(info.window);
     App::Seam::setPhaseProbe(framePhaseForPipelines);
     App::LatencyReport::startTestDriver();
+    {
+        int width = 0, height = 0;
+        if (SDL_GetWindowSize(static_cast<SDL_Window*>(info.window), &width, &height) && width > 0 && height > 0) {
+            App::Host::suggestAspect(static_cast<float>(std::max(width, height)) / static_cast<float>(std::min(width, height)));
+        }
+    }
     App::Host::startOS();
     App::Seam::openFirstFrame();
     App::Host::runGame();

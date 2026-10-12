@@ -32,6 +32,7 @@ namespace PetariNative::App::Host {
 namespace Platform = PetariNative::Platform;
 
 namespace {
+bool gNewSettings = false;
 
 // The OS exit functions (OSShutdownSystem, OSReturnToMenu, OSRestart, ...)
 // end here after the game's shutdown functions ran, on the game thread that
@@ -93,11 +94,23 @@ bool preparePlatform(const Paths& paths, std::string* error) {
         return false;
     }
     // Before OSInit, which runs SCInit.
+    gNewSettings = !std::filesystem::exists(paths.user / "settings.txt", ec);
     if (!Platform::SC::setStore(paths.user / "settings.txt", error)) {
         *error = "settings: " + *error;
         return false;
     }
     return true;
+}
+
+void suggestAspect(float ratio) {
+    if (!gNewSettings || ratio <= 0.0f) return;
+    Platform::SC::Settings settings = Platform::SC::current();
+    settings.aspectRatio = ratio < 1.6f ? 0 : 1;
+    std::string error;
+    if (Platform::SC::set(settings, &error)) {
+        std::fprintf(stderr, "petari: new settings: %s for a %.2f:1 screen\n",
+                     settings.aspectRatio == 0 ? "4:3" : "16:9", ratio);
+    }
 }
 
 void startOS() {

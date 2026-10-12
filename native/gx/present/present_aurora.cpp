@@ -15,6 +15,7 @@
 #include <mutex>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <thread>
 #include <vector>
@@ -339,7 +340,9 @@ void maybeDumpXfb(const aurora::gfx::TextureHandle& xfb) {
   if (index >= config.span || index % config.every != 0) return;
   if (!labelListed(config.labels, label)) return;
   if (!directoryMade) {
-    if (std::system(("mkdir -p '" + config.dir + "'").c_str()) != 0) return;
+    std::error_code error;
+    std::filesystem::create_directories(config.dir, error);
+    if (error) return;
     directoryMade = true;
   }
   auto path = config.dir + "/xfb-" + label + "-" + std::to_string(index) + ".png";
@@ -419,7 +422,9 @@ std::function<void()> surface_dump_encode(const wgpu::CommandEncoder& encoder, c
   if (index >= config.span || index % config.every != 0) return {};
   if (!labelListed(config.labels, label)) return {};
   if (!directoryMade) {
-    if (std::system(("mkdir -p '" + config.dir + "'").c_str()) != 0) return {};
+    std::error_code error;
+    std::filesystem::create_directories(config.dir, error);
+    if (error) return {};
     directoryMade = true;
   }
   if (!(texture.GetUsage() & wgpu::TextureUsage::CopySrc)) return {};

@@ -6,7 +6,12 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_hints.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
 #include <CoreAudio/CoreAudio.h>
+#else
+#include <CoreAudio/CoreAudioTypes.h>
+#endif
 #include <cmath>
 #include <string>
 #include <algorithm>
@@ -292,6 +297,7 @@ struct HalLatency {
 };
 HalLatency queryHalLatency() {
     HalLatency hal;
+#if TARGET_OS_OSX
     AudioObjectPropertyAddress address{kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal,
                                        kAudioObjectPropertyElementMain};
     AudioDeviceID deviceId = 0;
@@ -318,6 +324,7 @@ HalLatency queryHalLatency() {
         UInt32 n = sizeof(UInt32);
         AudioObjectGetPropertyData(streams[0], &latencyAddress, 0, nullptr, &n, &hal.streamLatency);
     }
+#endif
     return hal;
 }
 

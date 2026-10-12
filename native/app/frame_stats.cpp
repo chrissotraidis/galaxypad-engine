@@ -4,10 +4,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <objc/message.h>
+#include <objc/runtime.h>
 
 namespace PetariNative::App::FrameStats {
 
 namespace {
+
+// NSProcessInfo.thermalState: 0 nominal, 1 fair, 2 serious, 3 critical; -1 unknown.
+long thermalState() {
+    const auto cls = reinterpret_cast<id>(objc_getClass("NSProcessInfo"));
+    if (cls == nullptr) return -1;
+    const auto info = reinterpret_cast<id (*)(id, SEL)>(objc_msgSend)(cls, sel_registerName("processInfo"));
+    if (info == nullptr) return -1;
+    return reinterpret_cast<long (*)(id, SEL)>(objc_msgSend)(info, sel_registerName("thermalState"));
+}
 
 constexpr const char* kPhaseNames[kPhaseCount + 1] = {"startup", "loading", "menu", "gameplay", "total"};
 constexpr const char* kPartNames[PartCount] = {
@@ -201,8 +212,8 @@ void Recorder::writeWindow(std::FILE* out) {
             std::fprintf(out, " %s %u", kPhaseNames[phase], phases[phase]);
         }
     }
-    std::fprintf(out, "; unfocused %u; EFB captures %u, blocking pipeline resolves %u, texture uploads %u\n", unfocused, efb,
-                 pipelines, textures);
+    std::fprintf(out, "; unfocused %u; EFB captures %u, blocking pipeline resolves %u, texture uploads %u; thermal %ld\n",
+                 unfocused, efb, pipelines, textures, thermalState());
     std::fputs("    mean ms per frame:\n", out);
     writeParts(out, sums, mWindowCount, maxima);
     mWindowCount = 0;

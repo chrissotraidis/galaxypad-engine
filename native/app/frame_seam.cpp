@@ -19,6 +19,7 @@ extern "C" void petari_gx_pipeline_report();
 #include "host.hpp"
 #include "progress_observe.hpp"
 #include "smoke_background.hpp"
+#include "touch_controls.hpp"
 #include "smoke.hpp"
 #include "route_record.hpp"
 #include "smoke_domes.hpp"
@@ -199,6 +200,13 @@ void startTiming() {
         return value != nullptr && value[0] != '\0' && value[0] != '0';
     };
     const char* csv = std::getenv("PETARI_FRAME_CSV");
+    // "~/..." is relative to HOME (the app container on iOS).
+    static std::string csvStorage;
+    const char* home = std::getenv("HOME");
+    if (csv != nullptr && home != nullptr && csv[0] == '~' && csv[1] == '/') {
+        csvStorage = std::string(home) + (csv + 1);
+        csv = csvStorage.c_str();
+    }
     gTiming.csvPath = csv != nullptr && csv[0] != '\0' ? csv : nullptr;
     gTiming.report = gTiming.csvPath != nullptr || enabled("PETARI_FRAME_STATS") || enabled("PETARI_TRACE_BOOT");
     if (SpikeProfiler::startFromEnvironment()) {
@@ -642,6 +650,7 @@ extern "C" void petari_host_frame_seam(void) {
     const Rect image = updateImage();
     traceFrame(image);
     PetariNative::HomeMenu::drawImGuiOverlay(image.x, image.y, image.width, image.height);
+    TouchControls::draw();
     const std::uint64_t endStart = Telemetry::nowNs();
     aurora_end_frame();
 
