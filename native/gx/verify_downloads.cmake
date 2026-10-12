@@ -4,9 +4,17 @@
 # these entries together with the Aurora pin in native/gx/CMakeLists.txt.
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(_petari_pinned_downloads
-        "sdl|release-3.4.10.tar.gz|0dc11d980ba17250200718fa4e28011da293f27ed92f92203afffe396811f307"
-        "abseil-cpp|20240722.0.tar.gz|f50e5ac311a81382da7fa75b97310e4b9006474f9560ac46f54a9967f07d4ae3"
-        "dawn_prebuilt|dawn-ios-arm64.tar.gz|64e70875040099e24db3a40095461d43be0c553f0c347d63628f6d469c7d184b")
+        "sdl|release-3.4.10.tar.gz|0dc11d980ba17250200718fa4e28011da293f27ed92f92203afffe396811f307")
+    if(AURORA_DAWN_PROVIDER STREQUAL "vendor")
+        # iOS Simulator: Dawn's source at AURORA_DAWN_REF. Dawn fetches its own
+        # dependencies (abseil included) at the commits its DEPS file names.
+        list(APPEND _petari_pinned_downloads
+            "dawn|1155e0ed531126f33a1279afa029349651ca1c93.tar.gz|d0d291936d02a56b3b7e92e84e8b8c71db04a9c9e2b3a41cc6d7540cf13b4167")
+    else()
+        list(APPEND _petari_pinned_downloads
+            "abseil-cpp|20240722.0.tar.gz|f50e5ac311a81382da7fa75b97310e4b9006474f9560ac46f54a9967f07d4ae3"
+            "dawn_prebuilt|dawn-ios-arm64.tar.gz|64e70875040099e24db3a40095461d43be0c553f0c347d63628f6d469c7d184b")
+    endif()
     if(NOT FETCHCONTENT_BASE_DIR)
         set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps")
     endif()
@@ -27,5 +35,5 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
             endif()
         endforeach()
     endforeach()
-    message(STATUS "Pinned downloads verified: SDL, abseil, Dawn (iOS)")
+    message(STATUS "Pinned downloads verified for iOS (Dawn: ${AURORA_DAWN_PROVIDER})")
 endif()

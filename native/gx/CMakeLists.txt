@@ -7,7 +7,17 @@ set(AURORA_ENABLE_CARD OFF CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
-set(AURORA_DAWN_PROVIDER package CACHE STRING "" FORCE)
+# Dawn's prebuilt iOS package is for devices only; the iOS Simulator builds Dawn
+# from Aurora's pinned source commit (AURORA_DAWN_REF), checked in verify_downloads.cmake.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" AND CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+    set(AURORA_DAWN_PROVIDER vendor CACHE STRING "" FORCE)
+    # Metal only, without the fuzzer and IR tooling that needs a host protoc.
+    set(DAWN_BUILD_PROTOBUF OFF CACHE BOOL "" FORCE)
+    set(TINT_BUILD_IR_BINARY OFF CACHE BOOL "" FORCE)
+    set(DAWN_ENABLE_VULKAN OFF CACHE BOOL "" FORCE)
+else()
+    set(AURORA_DAWN_PROVIDER package CACHE STRING "" FORCE)
+endif()
 FetchContent_Declare(aurora
     GIT_REPOSITORY https://github.com/encounter/aurora.git
     GIT_TAG 08122911e8621acb7ded6563813b264bec1494b5)
