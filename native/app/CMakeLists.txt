@@ -136,6 +136,10 @@ if(BUILD_TESTING)
     # The seam against recording fakes of Aurora, SDL and the app's other units.
     add_executable(petari_app_seam_tests ${PETARI_REPO_ROOT}/native/tests/app_seam_tests.cpp frame_seam.cpp frame_stats.cpp spike_profiler.cpp)
     target_link_libraries(petari_app_seam_tests PRIVATE petari_app_smoke)
+    if(APPLE)
+        # frame_stats.cpp reads NSProcessInfo.thermalState through the Objective-C runtime.
+        target_link_libraries(petari_app_seam_tests PRIVATE objc "-framework Foundation")
+    endif()
     target_include_directories(petari_app_seam_tests PRIVATE ${PETARI_REPO_ROOT}/native/include)
     if(_petari_app_standalone)
         target_include_directories(petari_app_seam_tests PRIVATE ${PETARI_AURORA_INCLUDE_DIR} ${PETARI_SDL3_INCLUDE_DIR})
@@ -147,7 +151,8 @@ if(BUILD_TESTING)
 
     # Physical input is counted separately from the smoke driver's injected input.
     add_executable(petari_app_input_events_tests ${PETARI_REPO_ROOT}/native/tests/app_input_events_tests.cpp
-        input_events.cpp ${PETARI_REPO_ROOT}/native/input/bindings.cpp)
+        input_events.cpp ${PETARI_REPO_ROOT}/native/input/bindings.cpp
+        ${PETARI_REPO_ROOT}/native/tests/touch_controls_off.cpp)
     target_include_directories(petari_app_input_events_tests PRIVATE ${PETARI_REPO_ROOT}/native/include
         ${PETARI_REPO_ROOT}/native/input/include)
     if(_petari_app_standalone)

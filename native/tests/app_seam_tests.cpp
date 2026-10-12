@@ -214,6 +214,15 @@ bool SDL_GetWindowSize(SDL_Window*, int* w, int* h) {
     *h = windowHeight;
     return true;
 }
+// Smooth Motion's display-rate check (petari_host_display_hz): a 60 Hz display.
+SDL_DisplayID SDL_GetDisplayForWindow(SDL_Window*) {
+    return 1;
+}
+const SDL_DisplayMode* SDL_GetCurrentDisplayMode(SDL_DisplayID) {
+    static SDL_DisplayMode mode{};
+    mode.refresh_rate = 60.0f;
+    return &mode;
+}
 // Smoke result gates in the seam; these tests never trip them.
 std::uint64_t petari_layout_missing_reference_count() {
     return 0;
@@ -576,3 +585,5 @@ int main() {
 }
 
 namespace PetariNative::App { void recordRouteFrame(bool) {} void observeProgressFrame() {} }
+// Touch controls are off in these tests (as on a desktop without a touch screen).
+namespace PetariNative::App::TouchControls { void draw() {} }
