@@ -102,6 +102,54 @@ if(NOT _petari_app_standalone)
         set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/initial_pipeline_cache.db" PROPERTIES
             MACOSX_PACKAGE_LOCATION Resources)
     endif()
+
+    # GalaxyPad's New engine (iOS): the same game as `petari`, as a framework that
+    # GalaxyPad embeds next to its Original engine. Only galaxypad_engine_main is
+    # exported (engine_entry.mm). The Original engine links its own SDL, and
+    # Objective-C class names are process-wide, so every class SDL implements is
+    # renamed with a GPE_ prefix here. GalaxyPad copies the pipeline seeds from this
+    # directory's pipeline-seeds/ into its app bundle.
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        include(FetchContent)
+        FetchContent_GetProperties(SDL SOURCE_DIR _petari_sdl_source)
+        if(NOT TARGET SDL3-static OR NOT IS_DIRECTORY "${_petari_sdl_source}/src")
+            message(FATAL_ERROR "GalaxyPadEngine needs Aurora's static SDL3 built from source")
+        endif()
+        file(GLOB_RECURSE _petari_sdl_objc "${_petari_sdl_source}/src/*.m")
+        set(_petari_sdl_classes)
+        foreach(_file IN LISTS _petari_sdl_objc)
+            file(STRINGS "${_file}" _lines REGEX "^@implementation[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*([:{].*)?$")
+            foreach(_line IN LISTS _lines)
+                string(REGEX REPLACE "^@implementation[ \t]+([A-Za-z_][A-Za-z0-9_]*).*" "\\1" _class "${_line}")
+                list(APPEND _petari_sdl_classes "${_class}")
+            endforeach()
+        endforeach()
+        list(REMOVE_DUPLICATES _petari_sdl_classes)
+        list(LENGTH _petari_sdl_classes _petari_sdl_class_count)
+        if(NOT "SDLUIKitDelegate" IN_LIST _petari_sdl_classes OR NOT "SDLUIKitSceneDelegate" IN_LIST _petari_sdl_classes)
+            message(FATAL_ERROR "SDL's UIKit delegate classes were not found under ${_petari_sdl_source}/src")
+        endif()
+        set(_petari_sdl_renames)
+        foreach(_class IN LISTS _petari_sdl_classes)
+            list(APPEND _petari_sdl_renames "${_class}=GPE_${_class}")
+        endforeach()
+        message(STATUS "GalaxyPadEngine: renaming ${_petari_sdl_class_count} SDL Objective-C classes with GPE_")
+        target_compile_definitions(SDL3-static PRIVATE ${_petari_sdl_renames})
+
+        add_library(GalaxyPadEngine SHARED app_main.cpp smoke_storage.cpp pipeline_cache_dir.cpp latency_report.cpp
+            engine_entry.mm)
+        set_source_files_properties(engine_entry.mm PROPERTIES COMPILE_DEFINITIONS "${_petari_sdl_renames}")
+        target_link_libraries(GalaxyPadEngine PRIVATE petari_app_host petari_app_platform aurora::core SQLite::SQLite3
+            "-framework Foundation" "-framework UIKit")
+        target_link_options(GalaxyPadEngine PRIVATE "-Wl,-exported_symbol,_galaxypad_engine_main" "-Wl,-dead_strip")
+        set_target_properties(GalaxyPadEngine PROPERTIES
+            FRAMEWORK TRUE
+            OUTPUT_NAME GalaxyPadEngine
+            MACOSX_FRAMEWORK_IDENTIFIER org.galaxypad.engine
+            MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
+            MACOSX_FRAMEWORK_SHORT_VERSION_STRING "0.1.0"
+            INSTALL_NAME_DIR "@rpath")
+    endif()
 else()
     set(PETARI_AURORA_INCLUDE_DIR "${PETARI_REPO_ROOT}/../aurora-reference/include" CACHE PATH "Aurora headers")
     set(PETARI_SDL3_INCLUDE_DIR "${PETARI_REPO_ROOT}/build/aurora/_deps/sdl-src/include" CACHE PATH "SDL3 headers")

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(PetariNative LANGUAGES C CXX ASM)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    enable_language(OBJCXX)  # GalaxyPadEngine's entry (native/app/engine_entry.mm)
+endif()
 
 if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
     set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "Target architecture" FORCE)
@@ -238,4 +241,9 @@ if(PETARI_BUILD_GX_PROBE)
     target_link_libraries(petari PRIVATE petari_game_objects petari_game_libraries petari_sdk_helpers
         petari_home_menu petari_sdk_mem petari_rfl petari_vi_bridge petari_gx_sync_bridge)
     target_link_options(petari PRIVATE -Wl,-dead_strip)
+    if(TARGET GalaxyPadEngine)  # iOS: the same game as a framework for GalaxyPad (native/app)
+        target_sources(GalaxyPadEngine PRIVATE native/gx/legacy_commands.cpp native/gx/texture_cache.cpp)
+        target_link_libraries(GalaxyPadEngine PRIVATE petari_game_objects petari_game_libraries petari_sdk_helpers
+            petari_home_menu petari_sdk_mem petari_rfl petari_vi_bridge petari_gx_sync_bridge)
+    endif()
 endif()

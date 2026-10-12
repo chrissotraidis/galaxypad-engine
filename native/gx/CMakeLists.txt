@@ -12,6 +12,7 @@ FetchContent_Declare(aurora
     GIT_REPOSITORY https://github.com/encounter/aurora.git
     GIT_TAG 08122911e8621acb7ded6563813b264bec1494b5)
 FetchContent_MakeAvailable(aurora)
+include("${CMAKE_CURRENT_LIST_DIR}/verify_downloads.cmake")
 
 set(_petari_regs "${CMAKE_CURRENT_BINARY_DIR}/aurora-regs.cpp")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
