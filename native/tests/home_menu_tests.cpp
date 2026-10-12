@@ -241,6 +241,45 @@ void testSelections() {
     }
 }
 
+// Inside GalaxyPad (Config::switchEngine set) the list adds "Original engine...",
+// which asks first, then switches the setting and closes the game like Quit.
+int engineSwitches = 0;
+void countEngineSwitch() {
+    ++engineSwitches;
+}
+
+void testEngineSwitch() {
+    HM::Menu plain = newMenu();
+    openToList(plain);
+    check(plain.view().itemCount == 6, "no engine item outside GalaxyPad");
+
+    HM::Menu menu;
+    HM::Config config;
+    config.sound = recordSound;
+    config.switchEngine = countEngineSwitch;
+    menu.create(config);
+    openToList(menu);
+    const HM::View list = menu.view();
+    check(list.itemCount == 7 && std::strcmp(list.items[6].label, "Original engine...") == 0,
+          "GalaxyPad adds Original engine... last");
+    for (int i = 0; i < 6; i++) {
+        menu.update(press(Down));
+    }
+    menu.update(press(A));
+    check(menu.phase() == HM::Phase::Confirm && menu.focus() == 1, "engine switch asks first, Cancel focused");
+    check(std::strcmp(menu.view().items[0].label, "Switch") == 0, "confirm names the switch");
+    menu.update(press(A));
+    check(menu.phase() == HM::Phase::List && menu.focus() == 6 && engineSwitches == 0,
+          "Cancel returns to the item without switching");
+
+    menu.update(press(A));
+    menu.update(press(Up));
+    menu.update(press(A));
+    check(engineSwitches == 1 && menu.phase() == HM::Phase::BlackOut, "Switch saves the setting once and fades out");
+    framesUntilSelection(menu);
+    check(menu.selection() == HM::Selection::Quit && engineSwitches == 1, "then closes the game like Quit");
+}
+
 void testCancellation() {
     HM::Menu menu = newMenu();
     openToList(menu);
@@ -1298,6 +1337,7 @@ void testCameraPage() {
 int main() {
     testLifecycle();
     testSelections();
+    testEngineSwitch();
     testCancellation();
     testBlackOut();
     testFocusAndRepeat();
