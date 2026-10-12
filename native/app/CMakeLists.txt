@@ -150,6 +150,45 @@ if(NOT _petari_app_standalone)
             MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
             MACOSX_FRAMEWORK_SHORT_VERSION_STRING "0.1.0"
             INSTALL_NAME_DIR "@rpath")
+
+        # The license text of everything the framework links ships in its Licenses/
+        # folder (licenses/README.md). A missing text stops the configure.
+        set(_petari_deps "${FETCHCONTENT_BASE_DIR}")
+        if(NOT _petari_deps)
+            set(_petari_deps "${CMAKE_BINARY_DIR}/_deps")
+        endif()
+        set(_petari_abseil_license "${_petari_deps}/abseil-cpp-src/LICENSE")
+        if(NOT EXISTS "${_petari_abseil_license}")  # Dawn built from source brings its own
+            set(_petari_abseil_license "${_petari_deps}/dawn-src/third_party/abseil-cpp/LICENSE")
+        endif()
+        set(_petari_licenses
+            "Petari-and-MacioGalaxy.txt|${PETARI_REPO_ROOT}/LICENSE"
+            "Aurora.txt|${_petari_deps}/aurora-src/LICENSE"
+            "Dawn.txt|${CMAKE_CURRENT_SOURCE_DIR}/licenses/Dawn.txt"
+            "abseil.txt|${_petari_abseil_license}"
+            "SDL.txt|${_petari_deps}/sdl-src/LICENSE.txt"
+            "DearImGui.txt|${_petari_deps}/imgui-src/LICENSE.txt"
+            "fmt.txt|${_petari_deps}/fmt-src/LICENSE"
+            "FreeType.txt|${_petari_deps}/freetype-src/docs/FTL.TXT"
+            "libpng.txt|${_petari_deps}/png-src/LICENSE"
+            "Tracy.txt|${_petari_deps}/tracy-src/LICENSE"
+            "xxHash.txt|${_petari_deps}/xxhash-src/LICENSE"
+            "zstd.txt|${_petari_deps}/zstd-src/LICENSE")
+        set(_petari_license_dir "${CMAKE_CURRENT_BINARY_DIR}/engine-licenses")
+        file(REMOVE_RECURSE "${_petari_license_dir}")
+        foreach(_entry IN LISTS _petari_licenses)
+            string(REPLACE "|" ";" _parts "${_entry}")
+            list(GET _parts 0 _name)
+            list(GET _parts 1 _source)
+            if(NOT EXISTS "${_source}")
+                message(FATAL_ERROR "GalaxyPadEngine: license text ${_source} not found")
+            endif()
+            configure_file("${_source}" "${_petari_license_dir}/${_name}" COPYONLY)
+        endforeach()
+        add_custom_command(TARGET GalaxyPadEngine POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_directory "${_petari_license_dir}"
+                "$<TARGET_BUNDLE_DIR:GalaxyPadEngine>/Licenses"
+            VERBATIM)
     endif()
 else()
     set(PETARI_AURORA_INCLUDE_DIR "${PETARI_REPO_ROOT}/../aurora-reference/include" CACHE PATH "Aurora headers")
