@@ -12,6 +12,7 @@
 #include <petari/host_allocation.hpp>
 #include <petari/app.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -64,6 +65,10 @@ using Clock = std::chrono::steady_clock;
 constexpr double kPauseAboveMs = 16.0;
 constexpr double kResumeBelowMs = 15.0;
 constexpr double kSmoothing = 0.05;
+// While paused, the in-between estimate drifts back to the cost of one more draw
+// (about 3 s), so one slow in-between frame (a shader compile) cannot keep
+// Smooth Motion paused for the rest of the session.
+constexpr double kPausedDrift = 0.005;
 Clock::time_point gStepStart, gBetweenStart;
 double gBetweenMs = 0.0;     // this step's in-between frame (0 if none)
 double gBusyMs = 8.0;        // average busy time without the in-between frame
@@ -262,10 +267,13 @@ void endStep() {
     if (!gActive) {
         return;
     }
-    const double busy = msSince(gStepStart) - gBetweenMs;
+    const double busy = std::min(msSince(gStepStart) - gBetweenMs, 50.0);
     gBusyMs += kSmoothing * (busy - gBusyMs);
     if (gBetweenMs > 0.0 && busy > 0.5) {
-        gBetweenRatio += kSmoothing * (gBetweenMs / busy - gBetweenRatio);
+        const double ratio = std::min(std::max(gBetweenMs / busy, 0.25), 1.5);
+        gBetweenRatio += kSmoothing * (ratio - gBetweenRatio);
+    } else if (!gWithinBudget) {
+        gBetweenRatio += kPausedDrift * (1.0 - gBetweenRatio);
     }
 }
 
