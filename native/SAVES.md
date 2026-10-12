@@ -95,13 +95,18 @@ and other observatory destinations also use their own entrances.
 
 A Wii (or Dolphin) `GameData.bin` has the same layout as the native save, in
 big-endian order. `native/tools/wii_save_to_native.py WII_FILE NATIVE_FILE`
-converts one; the native game then loads it like its own. GalaxyPad's New engine
-does the same in the app: `--import-wii-save FILE` copies a Wii save in when the
-user folder has no save yet. It first keeps a byte-checked copy of the Wii file in
-`wii-save-import/`, converts it, converts the result back and requires the
-original bytes, and only then writes `NAND/title/00010000/524d4745/data/GameData.bin`.
-The Wii file is never written. On GalaxyPad's 121-star save the app's conversion and
-the script's are byte-identical.
+converts one; the native game then loads it like its own. On GalaxyPad's 121-star
+save the app's conversion and the script's are byte-identical.
+
+GalaxyPad keeps its two engines on the same progress with `--wii-save FILE` (its
+Original engine's Wii save). When the New engine starts, the Wii save is copied
+in; when the player chooses "Original engine..." in the Home menu, the New
+engine's save is copied out. After each copy `wii-save-sync.txt` in the user
+folder records a checksum of both files, and a copy replaces a save only when it
+is missing or unchanged since the last copy. When both changed, neither is
+replaced and each engine keeps its own. Every replaced file is first kept,
+byte-checked, in `wii-save-sync/`, and every copy must convert back to the bytes
+it came from.
 
 ## Fix a save made before 2026-10-01 (Hungry Lumas)
 

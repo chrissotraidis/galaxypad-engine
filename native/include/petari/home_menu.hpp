@@ -114,6 +114,10 @@ struct Config {
     void (*switchEngine)() = nullptr;
 };
 
+// GalaxyPad: runs when the player confirms "Original engine...", before the
+// setting is saved (the app copies the New engine's save to the Wii save).
+void setBeforeEngineSwitch(void (*hook)());
+
 // Animation lengths in 60 Hz frames, and focus repeat timing.
 constexpr float kFadeFrames = 10.0f;
 constexpr float kBlackOutFrames = 30.0f;

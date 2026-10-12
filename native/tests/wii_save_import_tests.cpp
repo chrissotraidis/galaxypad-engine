@@ -1,14 +1,21 @@
-// WiiSave::convert (native/app/wii_save_import.hpp) on a small synthetic save.
+// WiiSave::convert and GalaxyPad's save sync (native/app/wii_save_import.hpp) on a
+// small synthetic save.
 #include "../app/wii_save_import.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <unistd.h>
 
 namespace {
 using Bytes = std::vector<std::uint8_t>;
 using PetariNative::App::WiiSave::Order;
+using PetariNative::App::WiiSave::Sync;
 using PetariNative::App::WiiSave::convert;
+namespace fs = std::filesystem;
 int failures = 0;
 void check(bool ok, const char* what) {
     if (!ok) {
@@ -23,12 +30,13 @@ unsigned le32(const Bytes& b, size_t o) { return le16(b, o) | le16(b, o + 2) << 
 void put32be(Bytes& b, size_t o, unsigned v) { for (int i = 0; i < 4; i++) b[o + i] = v >> (24 - 8 * i); }
 
 // One "GameData" holder with a PLAY and a GALA chunk, Wii (big-endian) order.
-Bytes wiiSave() {
+// `progress` stands in for play: it is the first PLAY byte.
+Bytes wiiSave(unsigned progress = 0x7F) {
     Bytes b(32, 0);
     std::memcpy(&b[16], "GameData", 8);
     b.push_back(1); b.push_back(2); b.push_back(0); b.push_back(0);
     be32(b, 0x504C4159); be32(b, 0x1111); be32(b, 12 + 7);  // PLAY
-    b.push_back(0x7F); be32(b, 0x01020304); be16(b, 0x0506);
+    b.push_back(progress); be32(b, 0x01020304); be16(b, 0x0506);
     be32(b, 0x47414C41); be32(b, 0x2222); be32(b, 12 + 2 + 20 + 20);  // GALA
     be16(b, 1);                                      // galaxies
     be16(b, 4); be16(b, 20);                         // content header: count, record size
@@ -47,6 +55,66 @@ Bytes wiiSave() {
     }
     put32be(b, 0, total << 16 | inverse);
     return b;
+}
+
+Bytes nativeSave(unsigned progress) {
+    Bytes b = wiiSave(progress);
+    std::string error;
+    convert(b, Order::Wii, &error);
+    return b;
+}
+
+Bytes read(const fs::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    return Bytes(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+void write(const fs::path& path, const Bytes& data) {
+    fs::create_directories(path.parent_path());
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char*>(data.data()), data.size());
+}
+
+size_t kept(const fs::path& user) {
+    std::error_code ec;
+    size_t n = 0;
+    for (auto it = fs::directory_iterator(user / "wii-save-sync", ec); !ec && it != fs::directory_iterator(); ++it) n++;
+    return n;
+}
+
+// GalaxyPad's engines take turns: progress in either reaches the other, and a
+// save that changed since the last copy is never overwritten.
+void testSync() {
+    using namespace PetariNative::App::WiiSave;
+    const fs::path root = fs::temp_directory_path() / ("petari-wii-sync-" + std::to_string(::getpid()));
+    fs::remove_all(root);
+    const fs::path wii = root / "Wii/title/00010000/524d4745/data/GameData.bin";
+    const fs::path user = root / "NewEngine";
+    const fs::path native = user / "NAND/title/00010000/524d4745/data/GameData.bin";
+
+    check(importFromWii(wii, user) == Sync::UpToDate && !fs::exists(native), "no Wii save: nothing to copy");
+    write(wii, wiiSave(1));
+    check(importFromWii(wii, user) == Sync::Copied && read(native) == nativeSave(1), "first New launch copies the Wii save in");
+    check(read(wii) == wiiSave(1) && kept(user) == 0, "the Wii save is only read; nothing replaced");
+    check(importFromWii(wii, user) == Sync::UpToDate, "nothing new: no copy");
+
+    write(native, nativeSave(2));  // played in New
+    check(importFromWii(wii, user) == Sync::UpToDate && read(native) == nativeSave(2), "New's progress is not undone at start");
+    check(exportToWii(wii, user) == Sync::Copied && read(wii) == wiiSave(2), "switching to Original copies New's progress out");
+    check(kept(user) == 1, "the replaced Wii save is kept");
+    check(exportToWii(wii, user) == Sync::UpToDate, "switching again: no copy");
+
+    write(wii, wiiSave(3));  // played in Original
+    check(importFromWii(wii, user) == Sync::Copied && read(native) == nativeSave(3), "Original's progress reaches New");
+    check(kept(user) == 2, "the replaced native save is kept");
+
+    write(wii, wiiSave(4));    // Original progressed...
+    write(native, nativeSave(5));  // ...and so did New, without a copy between
+    check(importFromWii(wii, user) == Sync::Conflict && read(native) == nativeSave(5), "both changed: New keeps its save");
+    check(exportToWii(wii, user) == Sync::Conflict && read(wii) == wiiSave(4), "both changed: Original keeps its save");
+
+    write(wii, Bytes(60, 0));
+    check(importFromWii(wii, user) == Sync::Failed && read(native) == nativeSave(5), "a damaged Wii save changes nothing");
+    fs::remove_all(root);
 }
 }  // namespace
 
@@ -74,6 +142,7 @@ int main() {
     Bytes unknown = original;
     unknown[32 + 4] = 'X';
     check(!convert(unknown, Order::Wii, &error), "an unknown chunk is rejected");
-    if (failures == 0) std::puts("Wii save conversion tests passed");
+    testSync();
+    if (failures == 0) std::puts("Wii save conversion and sync tests passed");
     return failures == 0 ? 0 : 1;
 }

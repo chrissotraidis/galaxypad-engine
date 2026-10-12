@@ -41,6 +41,7 @@
 #include <petari/launch_stage.hpp>
 #include <petari/player_launch.hpp>
 #include <petari/host_allocation.hpp>
+#include <petari/home_menu.hpp>
 
 extern "C" void petari_gx_pipeline_background_begin();
 extern "C" void VISetFrameBufferScale(float scale);
@@ -59,7 +60,7 @@ void logMessage(AuroraLogLevel level, const char* module, const char* message, u
 
 void usage() {
     std::fputs("Usage: petari [--disc DIR] [--user DIR] [--stage GALAXY [--scenario N]] [--test-fixture observatory|stage]\n"
-               "              [--import-wii-save FILE]\n"
+               "              [--wii-save FILE]\n"
                "  --disc DIR  extracted disc (containing files/); default: $PETARI_GAME_DIR,\n"
                "              else build/game-data/RMGE01 under the working directory\n"
                "  --user DIR  saves, settings, controls and crash reports;\n"
@@ -75,8 +76,9 @@ void usage() {
                "              (native/SAVES.md; use native/tools/make_unlocked_save.py)\n"
                "  --make-unlocked-save feed-galaxy-lumas  in every file of an isolated --user, feed only the\n"
                "              in-galaxy Hungry Lumas whose mission star the file holds; save, reload, verify, exit\n"
-               "  --import-wii-save FILE  when --user has no save yet, copy in this Wii-format GameData.bin\n"
-               "              (a checked copy is kept; the file itself is never written; native/SAVES.md)\n",
+               "  --wii-save FILE  GalaxyPad: keep --user's save and this Wii-format GameData.bin (its Original\n"
+               "              engine's) on the same progress; copied in at start, out when switching engines\n"
+               "              (checked copies are kept; native/SAVES.md)\n",
                stderr);
 }
 
@@ -116,9 +118,15 @@ std::filesystem::path expandHome(const char* argument) {
     return argument;
 }
 
-// --import-wii-save FILE (GalaxyPad's New engine): a Wii-format GameData.bin to
-// copy into this user folder once, when it has no save yet (wii_save_import.hpp).
-std::filesystem::path gImportWiiSave;
+// --wii-save FILE (GalaxyPad's New engine): its Original engine's Wii-format
+// GameData.bin, kept on the same progress as this user folder (wii_save_import.hpp).
+std::filesystem::path gWiiSave;
+std::filesystem::path gUserForWiiSave;
+
+void exportWiiSave() {
+    PetariNative::HostAllocationScope host;
+    App::WiiSave::exportToWii(gWiiSave, gUserForWiiSave);
+}
 
 bool resolvePaths(int argc, char** argv, App::Paths* paths) {
     bool fixture = false;
@@ -143,8 +151,8 @@ bool resolvePaths(int argc, char** argv, App::Paths* paths) {
             paths->disc = expandHome(argv[++i]);
         } else if (std::strcmp(argv[i], "--user") == 0 && i + 1 < argc) {
             paths->user = expandHome(argv[++i]);
-        } else if (std::strcmp(argv[i], "--import-wii-save") == 0 && i + 1 < argc) {
-            gImportWiiSave = expandHome(argv[++i]);
+        } else if (std::strcmp(argv[i], "--wii-save") == 0 && i + 1 < argc) {
+            gWiiSave = expandHome(argv[++i]);
         } else if (std::strcmp(argv[i], "--test-fixture") == 0 && i + 1 < argc &&
                    std::strcmp(argv[i + 1], "observatory") == 0) {
             ++i;
@@ -443,9 +451,11 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "petari: background storage: %s\n", error.c_str());
         return 1;
     }
-    if (!gImportWiiSave.empty()) {
+    if (!gWiiSave.empty()) {
         PetariNative::HostAllocationScope host;
-        App::WiiSave::importOnce(gImportWiiSave, paths.user);
+        App::WiiSave::importFromWii(gWiiSave, paths.user);
+        gUserForWiiSave = paths.user;
+        PetariNative::HomeMenu::setBeforeEngineSwitch(exportWiiSave);
     }
     if (!App::Host::preparePlatform(paths, &error)) {
         std::fprintf(stderr, "petari: %s\n", error.c_str());

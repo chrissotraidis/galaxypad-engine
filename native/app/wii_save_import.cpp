@@ -192,57 +192,153 @@ bool convert(Bytes& data, Order from, std::string* error) {
     }
 }
 
-void importOnce(const fs::path& wiiSave, const fs::path& user) {
+namespace {
+
+// Change detection only (FNV-1a, 64 bits); "absent" for a missing file.
+std::string checksum(const Bytes* data) {
+    if (data == nullptr) return "absent";
+    std::uint64_t h = 0xcbf29ce484222325ull;
+    for (std::uint8_t b : *data) h = (h ^ b) * 0x100000001b3ull;
+    char text[17];
+    std::snprintf(text, sizeof(text), "%016llx", static_cast<unsigned long long>(h));
+    return text;
+}
+
+struct Record {
+    bool present = false;
+    std::string wii, native;
+};
+
+Record readRecord(const fs::path& user) {
+    Record r;
+    std::ifstream in(user / "wii-save-sync.txt");
+    std::string key, value;
+    while (in >> key >> value) {
+        if (key == "wii") r.wii = value;
+        if (key == "native") r.native = value;
+    }
+    r.present = !r.wii.empty() && !r.native.empty();
+    return r;
+}
+
+bool writeRecord(const fs::path& user, const std::string& wii, const std::string& native) {
+    const fs::path path = user / "wii-save-sync.txt", partial = user / "wii-save-sync.txt.partial";
+    {
+        std::ofstream out(partial, std::ios::trunc);
+        out << "wii " << wii << "\nnative " << native << "\n";
+        if (!out) return false;
+    }
     std::error_code ec;
-    const fs::path dest = user / "NAND/title/00010000/524d4745/data/GameData.bin";
-    if (fs::exists(dest, ec) || ec) {
-        std::fputs("petari: save import: a native save exists; the Wii save is not imported again\n", stderr);
-        return;
+    fs::rename(partial, path, ec);
+    return !ec;
+}
+
+// Reads `path` into `out`; false when it does not exist. Sets `failed` on a read error.
+bool readIfPresent(const fs::path& path, Bytes* out, bool* failed) {
+    std::error_code ec;
+    if (!fs::exists(path, ec)) {
+        *failed = static_cast<bool>(ec);
+        return false;
     }
-    if (!fs::is_regular_file(wiiSave, ec)) {
-        std::fputs("petari: save import: no Wii save to import\n", stderr);
-        return;
-    }
-    Bytes original;
-    if (!readFile(wiiSave, &original)) {
-        std::fprintf(stderr, "petari: save import: could not read %s\n", wiiSave.c_str());
-        return;
-    }
+    *failed = !readFile(path, out);
+    return !*failed;
+}
+
+// Keeps a byte-checked copy of `data` under <user>/wii-save-sync/.
+bool keep(const fs::path& user, const char* label, const Bytes& data) {
     const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     char stamp[32];
     std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", std::gmtime(&now));
-    const fs::path backups = user / "wii-save-import";
-    fs::create_directories(backups, ec);
-    const fs::path backup = backups / (std::string("GameData-wii-") + stamp + ".bin");
-    if (ec || fs::exists(backup) || !writeFile(backup, original)) {
-        std::fputs("petari: save import: could not keep a checked copy of the Wii save; not imported\n", stderr);
-        return;
+    const fs::path folder = user / "wii-save-sync";
+    std::error_code ec;
+    fs::create_directories(folder, ec);
+    if (ec) return false;
+    for (int n = 0; n < 1000; n++) {
+        const fs::path path = folder / (std::string("GameData-") + label + "-" + stamp + (n ? "-" + std::to_string(n) : "") + ".bin");
+        if (!fs::exists(path, ec) && !ec) return writeFile(path, data);
     }
-    Bytes converted = original;
-    std::string error;
-    if (!convert(converted, Order::Wii, &error)) {
-        std::fprintf(stderr, "petari: save import: not a Wii GameData.bin (%s); not imported\n", error.c_str());
-        return;
-    }
-    Bytes roundTrip = converted;
-    if (!convert(roundTrip, Order::Native, &error) || roundTrip != original) {
-        std::fputs("petari: save import: converting back did not give the original bytes; not imported\n", stderr);
-        return;
-    }
+    return false;
+}
+
+// Writes `data` next to `dest`, checks it, then puts it in place.
+bool place(const fs::path& dest, const Bytes& data) {
+    std::error_code ec;
     fs::create_directories(dest.parent_path(), ec);
-    const fs::path partial = dest.parent_path() / "GameData.bin.import";
-    if (ec || !writeFile(partial, converted)) {
-        std::fputs("petari: save import: could not write the native save\n", stderr);
+    const fs::path partial = dest.parent_path() / (dest.filename().string() + ".sync");
+    if (ec || !writeFile(partial, data)) {
         fs::remove(partial, ec);
-        return;
+        return false;
     }
     fs::rename(partial, dest, ec);
-    if (ec) {
-        std::fputs("petari: save import: could not place the native save\n", stderr);
-        return;
+    return !ec;
+}
+
+fs::path nativeSave(const fs::path& user) {
+    return user / "NAND/title/00010000/524d4745/data/GameData.bin";
+}
+
+// One direction: `source` (in order `from`) replaces `dest` when `dest` is missing
+// or unchanged since the last copy. `importing` is true for Wii -> native.
+Sync copySave(const fs::path& sourcePath, Order from, const fs::path& destPath, const fs::path& user, bool importing) {
+    const char* what = importing ? "save import" : "save export";
+    bool failed = false;
+    Bytes source, dest;
+    if (!readIfPresent(sourcePath, &source, &failed)) {
+        if (failed) std::fprintf(stderr, "petari: %s: could not read %s\n", what, sourcePath.c_str());
+        return failed ? Sync::Failed : Sync::UpToDate;
     }
-    std::fprintf(stderr, "petari: save import: Wii save copied in (%zu bytes; copy kept as %s)\n", converted.size(),
-                 backup.filename().c_str());
+    const bool hasDest = readIfPresent(destPath, &dest, &failed);
+    if (failed) {
+        std::fprintf(stderr, "petari: %s: could not read %s\n", what, destPath.c_str());
+        return Sync::Failed;
+    }
+    Bytes converted = source;
+    std::string error;
+    if (!convert(converted, from, &error)) {
+        std::fprintf(stderr, "petari: %s: not a Galaxy GameData.bin (%s); nothing copied\n", what, error.c_str());
+        return Sync::Failed;
+    }
+    Bytes roundTrip = converted;
+    if (!convert(roundTrip, from == Order::Wii ? Order::Native : Order::Wii, &error) || roundTrip != source) {
+        std::fprintf(stderr, "petari: %s: converting back did not give the same bytes; nothing copied\n", what);
+        return Sync::Failed;
+    }
+    const std::string sourceSum = checksum(&source), destSum = checksum(hasDest ? &dest : nullptr);
+    const Record record = readRecord(user);
+    const std::string& recordedSource = importing ? record.wii : record.native;
+    const std::string& recordedDest = importing ? record.native : record.wii;
+    auto remember = [&](const std::string& destNow) {
+        return importing ? writeRecord(user, sourceSum, destNow) : writeRecord(user, destNow, sourceSum);
+    };
+    if (hasDest && converted == dest) {
+        remember(destSum);
+        return Sync::UpToDate;
+    }
+    if (record.present && recordedSource == sourceSum) return Sync::UpToDate;  // no new progress here
+    if (hasDest && !(record.present && recordedDest == destSum)) {
+        std::fprintf(stderr, "petari: %s: both engines' saves changed since the last copy; each keeps its own\n", what);
+        return Sync::Conflict;
+    }
+    if (hasDest && !keep(user, importing ? "native" : "wii", dest)) {
+        std::fprintf(stderr, "petari: %s: could not keep a checked copy of the save it replaces; nothing copied\n", what);
+        return Sync::Failed;
+    }
+    if (!place(destPath, converted) || !remember(checksum(&converted))) {
+        std::fprintf(stderr, "petari: %s: could not write %s\n", what, destPath.c_str());
+        return Sync::Failed;
+    }
+    std::fprintf(stderr, "petari: %s: copied (%zu bytes)\n", what, converted.size());
+    return Sync::Copied;
+}
+
+}  // namespace
+
+Sync importFromWii(const fs::path& wiiSave, const fs::path& user) {
+    return copySave(wiiSave, Order::Wii, nativeSave(user), user, true);
+}
+
+Sync exportToWii(const fs::path& wiiSave, const fs::path& user) {
+    return copySave(nativeSave(user), Order::Native, wiiSave, user, false);
 }
 
 }  // namespace PetariNative::App::WiiSave

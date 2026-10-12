@@ -130,10 +130,17 @@ FrameInput frameInput(const HBMControllerData* controllers) {
 namespace Hbm {
 
 #if TARGET_OS_IPHONE
+namespace {
+void (*gBeforeEngineSwitch)() = nullptr;
+}
+
 // GalaxyPad (docs in its ENGINE-SWITCH-PLAN.md) starts this engine with
 // GALAXYPAD_ENGINE_HOST=1. Its Engine setting is the app's NSUserDefaults key
 // GalaxyPadEngine: 0 is the Original engine, read at the next launch.
 void switchToOriginalEngine() {
+    if (gBeforeEngineSwitch != nullptr) {
+        gBeforeEngineSwitch();
+    }
     const int original = 0;
     CFNumberRef value = CFNumberCreate(nullptr, kCFNumberIntType, &original);
     CFPreferencesSetAppValue(CFSTR("GalaxyPadEngine"), value, kCFPreferencesCurrentApplication);
@@ -317,5 +324,13 @@ void startBlackOut() {
 }
 
 }  // namespace Hbm
+
+void setBeforeEngineSwitch(void (*hook)()) {
+#if TARGET_OS_IPHONE
+    Hbm::gBeforeEngineSwitch = hook;
+#else
+    (void)hook;
+#endif
+}
 
 }  // namespace PetariNative::HomeMenu
