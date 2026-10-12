@@ -8,8 +8,16 @@
 
 #include <revolution/wpad.h>
 
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <CoreFoundation/CoreFoundation.h>
+#include <cstdlib>
+#include <cstring>
+#endif
+
 #ifdef PETARI_HOME_MENU_INPUT
 #include <algorithm>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -121,6 +129,20 @@ FrameInput frameInput(const HBMControllerData* controllers) {
 
 namespace Hbm {
 
+#if TARGET_OS_IPHONE
+// GalaxyPad (docs in its ENGINE-SWITCH-PLAN.md) starts this engine with
+// GALAXYPAD_ENGINE_HOST=1. Its Engine setting is the app's NSUserDefaults key
+// GalaxyPadEngine: 0 is the Original engine, read at the next launch.
+void switchToOriginalEngine() {
+    const int original = 0;
+    CFNumberRef value = CFNumberCreate(nullptr, kCFNumberIntType, &original);
+    CFPreferencesSetAppValue(CFSTR("GalaxyPadEngine"), value, kCFPreferencesCurrentApplication);
+    CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+    CFRelease(value);
+    std::fputs("petari: GalaxyPad will open with its Original engine next time\n", stderr);
+}
+#endif
+
 void create(const HBMDataInfo* info) {
     Config config;
     if (info != nullptr) {
@@ -128,6 +150,11 @@ void create(const HBMDataInfo* info) {
         config.frameDelta = info->frameDelta;
         config.widescreenAdjustX = info->adjust.x;
     }
+#if TARGET_OS_IPHONE
+    if (const char* host = std::getenv("GALAXYPAD_ENGINE_HOST"); host != nullptr && std::strcmp(host, "1") == 0) {
+        config.switchEngine = switchToOriginalEngine;
+    }
+#endif
     instance().create(config);
     publish(View{});
 }

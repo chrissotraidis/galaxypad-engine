@@ -108,6 +108,10 @@ struct Config {
     // while the widescreen flag (HBMSetAdjustFlag) is set so the panel keeps
     // its shape.
     float widescreenAdjustX = 832.0f / 608.0f;
+    // Inside GalaxyPad (its New engine): adds "Original engine..." to the list.
+    // Called when the player confirms, before the game closes like Quit, so
+    // GalaxyPad opens with its Original engine next time.
+    void (*switchEngine)() = nullptr;
 };
 
 // Animation lengths in 60 Hz frames, and focus repeat timing.
@@ -249,6 +253,7 @@ private:
     Phase mPhase = Phase::Closed;
     Selection mResult = Selection::None;
     Selection mConfirming = Selection::None;
+    bool mSwitchingEngine = false;  // the Quit confirmation is GalaxyPad's engine switch
     int mFocus = 0;
     float mTime = 0.0f;          // frames into the current animation
     float mBlackStart = 0.0f;    // black opacity when the black-out began

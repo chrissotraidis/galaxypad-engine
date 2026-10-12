@@ -43,6 +43,7 @@ constexpr int kListMods = 2;
 constexpr int kListProgress = 3;
 constexpr int kListRestart = 4;
 constexpr int kListQuit = 5;
+constexpr int kListEngine = 6;  // only inside GalaxyPad (Config::switchEngine)
 constexpr int kConfirmAccept = 0;
 constexpr int kConfirmCancel = 1;
 
@@ -76,6 +77,7 @@ void Menu::open() {
     mPhase = Phase::Opening;
     mResult = Selection::None;
     mConfirming = Selection::None;
+    mSwitchingEngine = false;
     mLevelPending = false;
     mFocus = kListResume;
     mTime = 0.0f;
@@ -526,6 +528,14 @@ View Menu::view() const {
         for (int i = 0; i < kListCount; i++) {
             view.items[i].label = kListLabels[i];
         }
+        if (mConfig.switchEngine != nullptr) {
+            view.items[kListEngine].label = "Original engine...";
+        }
+    } else if (mSwitchingEngine) {
+        view.title = "Use the Original engine?";
+        view.message = "GalaxyPad opens with it next time. The game closes now; progress since your last save will be lost.";
+        view.items[kConfirmAccept].label = "Switch";
+        view.items[kConfirmCancel].label = "Cancel";
     } else {
         const bool restart = mConfirming == Selection::Restart;
         view.title = restart ? "Restart from the title screen?" : "Quit Super Mario Galaxy?";
@@ -572,7 +582,7 @@ int Menu::itemCount() const {
     if (mPhase == Phase::Levels) {
         return 4;
     }
-    return mConfirming != Selection::None ? 2 : kListCount;
+    return mConfirming != Selection::None ? 2 : kListCount + (mConfig.switchEngine != nullptr ? 1 : 0);
 }
 
 Rect Menu::itemRect(int index) const {
@@ -668,6 +678,15 @@ void Menu::activate(int index) {
         case kListQuit:
             play(Sound::Select);
             mConfirming = index == kListRestart ? Selection::Restart : Selection::Quit;
+            mSwitchingEngine = false;
+            mPhase = Phase::Confirm;
+            mFocus = kConfirmCancel;
+            mRepeatDir = 0;
+            break;
+        case kListEngine:
+            play(Sound::Select);
+            mConfirming = Selection::Quit;
+            mSwitchingEngine = true;
             mPhase = Phase::Confirm;
             mFocus = kConfirmCancel;
             mRepeatDir = 0;
@@ -778,12 +797,16 @@ void Menu::activate(int index) {
         }
     } else if (mPhase == Phase::Confirm) {
         if (index == kConfirmAccept) {
+            if (mSwitchingEngine && mConfig.switchEngine != nullptr) {
+                mConfig.switchEngine();
+            }
             play(mConfirming == Selection::Restart ? Sound::ResetApp : Sound::GotoMenu);
             blackOut(mConfirming);
         } else {
             play(Sound::Cancel);
-            mFocus = mConfirming == Selection::Restart ? kListRestart : kListQuit;
+            mFocus = mSwitchingEngine ? kListEngine : mConfirming == Selection::Restart ? kListRestart : kListQuit;
             mConfirming = Selection::None;
+            mSwitchingEngine = false;
             mPhase = Phase::List;
             mRepeatDir = 0;
         }
