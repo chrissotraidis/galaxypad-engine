@@ -333,4 +333,10 @@ void setBeforeEngineSwitch(void (*hook)()) {
 #endif
 }
 
+void switchToOriginalEngine() {
+#if TARGET_OS_IPHONE
+    Hbm::switchToOriginalEngine();
+#endif
+}
+
 }  // namespace PetariNative::HomeMenu

@@ -3,8 +3,10 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_scancode.h>
 
+#include <atomic>
 #include <cstdio>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 
 #include "host.hpp"
@@ -40,6 +42,11 @@ bool loadControls(const std::filesystem::path& file, std::string* error) {
 namespace {
 
 Smoke::PhysicalInputs gPhysical;
+
+std::mutex gImageMutex;
+Rect gImage;
+float gWindowWidth = 0.0f, gWindowHeight = 0.0f;
+std::atomic<bool> gGameStarted{false};
 
 // The first game action the input is bound to, or null.
 const char* boundAction(const Input::Binding& input) {
@@ -157,6 +164,12 @@ Smoke::PhysicalInputs physicalInputs() {
 
 void setImage(const Rect& image, float windowWidth, float windowHeight) {
     TouchControls::setWindow(windowWidth, windowHeight);
+    {
+        std::lock_guard<std::mutex> lock(gImageMutex);
+        gImage = image;
+        gWindowWidth = windowWidth;
+        gWindowHeight = windowHeight;
+    }
     Input::Viewport viewport;
     viewport.windowWidth = windowWidth;
     viewport.windowHeight = windowHeight;
@@ -165,6 +178,22 @@ void setImage(const Rect& image, float windowWidth, float windowHeight) {
     viewport.imageWidth = image.width;
     viewport.imageHeight = image.height;
     Input::setViewport(viewport);
+}
+
+bool image(Rect* image, float* windowWidth, float* windowHeight) {
+    std::lock_guard<std::mutex> lock(gImageMutex);
+    *image = gImage;
+    *windowWidth = gWindowWidth;
+    *windowHeight = gWindowHeight;
+    return gWindowWidth > 0.0f && gWindowHeight > 0.0f && gImage.width > 0.0f && gImage.height > 0.0f;
+}
+
+void setGameStarted() {
+    gGameStarted.store(true);
+}
+
+bool gameStarted() {
+    return gGameStarted.load();
 }
 
 void pressButton(int button, bool down) {

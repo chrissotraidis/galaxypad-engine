@@ -636,6 +636,7 @@ int main(int argc, char** argv) {
             App::Host::suggestAspect(static_cast<float>(std::max(width, height)) / static_cast<float>(std::min(width, height)));
         }
     }
+    App::Events::setGameStarted();
     App::Host::startOS();
     App::Seam::openFirstFrame();
     App::Host::runGame();

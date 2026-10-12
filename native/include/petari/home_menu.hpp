@@ -117,6 +117,10 @@ struct Config {
 // GalaxyPad: runs when the player confirms "Original engine...", before the
 // setting is saved (the app copies the New engine's save to the Wii save).
 void setBeforeEngineSwitch(void (*hook)());
+// GalaxyPad (iOS): runs that hook, then saves GalaxyPad's Engine setting as
+// Original. The Home menu's "Original engine..." and GalaxyPad's own menu
+// (engine_entry.mm) use it. Does nothing elsewhere.
+void switchToOriginalEngine();
 
 // Animation lengths in 60 Hz frames, and focus repeat timing.
 constexpr float kFadeFrames = 10.0f;

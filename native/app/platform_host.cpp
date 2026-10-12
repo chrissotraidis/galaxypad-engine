@@ -1,6 +1,7 @@
 // Platform start-up and exit for the native application. SDK side: no Aurora
 // or SDL headers here.
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <system_error>
@@ -33,6 +34,7 @@ namespace Platform = PetariNative::Platform;
 
 namespace {
 bool gNewSettings = false;
+std::atomic<void (*)()> gBeforeExit{nullptr};
 
 // The OS exit functions (OSShutdownSystem, OSReturnToMenu, OSRestart, ...)
 // end here after the game's shutdown functions ran, on the game thread that
@@ -40,6 +42,9 @@ bool gNewSettings = false;
 // nothing needs flushing but stdio; process exit releases the audio device and
 // the window, so no platform shutdowns (which join their threads) run here.
 void leave(const Platform::Power::Exit& exit, void*) {
+    if (void (*hook)() = gBeforeExit.exchange(nullptr)) {
+        hook();
+    }
     Seam::reportFrameStats();
     petari_platform_report_diagnostics();
     std::fflush(stdout);
@@ -143,6 +148,10 @@ void runGame() {
 
 void requestQuit() {
     Platform::Power::pressPowerButton();
+}
+
+void setBeforeExit(void (*hook)()) {
+    gBeforeExit.store(hook);
 }
 
 void forceQuit() {

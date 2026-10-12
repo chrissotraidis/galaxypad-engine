@@ -30,18 +30,20 @@ namespace App = PetariNative::App;
 
 namespace {
 
-// The same switch as the touch controls (PETARI_TOUCH_CONTROLS, on by default on iOS).
+// A phone or tablet: tap hints, never keyboard ones, also when GalaxyPad draws
+// its own touch controls (PETARI_TOUCH_CONTROLS=0). Elsewhere the touch
+// controls' switch (PETARI_TOUCH_CONTROLS=1) turns them on for testing.
 bool touchScreen() {
+#if TARGET_OS_IPHONE
+    return true;
+#else
     static const bool on = [] {
         const char* value = std::getenv("PETARI_TOUCH_CONTROLS");
         if (value && *value) return std::strcmp(value, "0") != 0;
-#if TARGET_OS_IPHONE
-        return true;
-#else
         return false;
-#endif
     }();
     return on;
+#endif
 }
 
 struct ImageSpace {

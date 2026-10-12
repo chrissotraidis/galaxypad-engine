@@ -39,6 +39,9 @@ void startOS();
 [[noreturn]] void runGame();
 // The window's close request, as the console's power button.
 void requestQuit();
+// Runs once on the game thread after the game has shut down, before the
+// process exits (GalaxyPad's engine switch, engine_entry.mm). Any thread.
+void setBeforeExit(void (*hook)());
 // A second close request while the game is still shutting down.
 [[noreturn]] void forceQuit();
 }  // namespace Host
@@ -67,6 +70,11 @@ bool input(const SDL_Event& event);
 Smoke::PhysicalInputs physicalInputs();
 // Where the game image is, for the pointer. Window points.
 void setImage(const Rect& image, float windowWidth, float windowHeight);
+// The last setImage values; false before the first frame. Any thread.
+bool image(Rect* image, float* windowWidth, float* windowHeight);
+// Startup preparation has finished and the game starts (app_main). Any thread.
+void setGameStarted();
+bool gameStarted();
 // Smoke run only (smoke.hpp): press or release the input bound to a Wii
 // Remote/Nunchuk action, tell the input layer the window has focus (it ignores
 // presses while unfocused), and move the pointer.
