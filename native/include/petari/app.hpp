@@ -21,6 +21,13 @@ extern "C" void petari_host_present_between(void);
 // The game window's display refresh rate in Hz (0 if unknown), read once.
 extern "C" int petari_host_display_hz(void);
 
+// Smooth Motion turned on or off (Game/System/SmoothMotion.cpp). While it is on,
+// the game renders at 3x its framebuffer (1920x1440 for 4:3) instead of the
+// screen's pixel size, unless PETARI_RENDER_SCALE chose a scale: measured on
+// an iPad Pro, the full 2732x2048 needs 21 ms for two frames in the restored
+// Observatory, 3x needs 14 ms.
+extern "C" void petari_host_smooth_motion(bool on);
+
 // Frame-time marks for the seam's statistics, from GameSystem::frameLoop on
 // the same thread: the retrace wait after the seam returned, and endFrame
 // (its GXDrawDone wait) is starting. A timestamp each; no other effect.

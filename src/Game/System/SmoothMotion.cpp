@@ -186,6 +186,7 @@ void beginStep() {
     if (active != gActive) {
         gActive = active;
         gPetariJ3DViewAdjust = active ? adjustModel : nullptr;
+        petari_host_smooth_motion(active);
         gReportSteps = 0;
         gReportBetween = 0;
         std::fprintf(stderr, "Petari Smooth Motion: %s\n", active ? "on (each 60 Hz step is drawn twice)" : "off");

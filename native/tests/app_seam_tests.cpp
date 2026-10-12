@@ -223,6 +223,7 @@ const SDL_DisplayMode* SDL_GetCurrentDisplayMode(SDL_DisplayID) {
     mode.refresh_rate = 60.0f;
     return &mode;
 }
+void VISetFrameBufferScale(float) {}
 // Smoke result gates in the seam; these tests never trip them.
 std::uint64_t petari_layout_missing_reference_count() {
     return 0;

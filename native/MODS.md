@@ -44,8 +44,13 @@ two frames per step would halve the game's speed there.
 The game's speed comes first: an in-between frame is drawn only while the step
 with it still fits in a 60 Hz frame (about 16 ms; it resumes under 15 ms).
 In heavier views the screen falls back to 60 frames a second at full speed.
-On an iPad Pro (M2) most of the Comet Observatory, the Terrace and Good Egg fit;
-the cost of a full draw (about 7-8 ms there) decides the rest.
+
+While Smooth Motion is on, the game renders at 3x its own framebuffer
+(1920x1440 in 4:3) instead of the screen's pixel size; `PETARI_RENDER_SCALE`
+still decides when set. On an iPad Pro (M2) the GPU is the limit: in the
+restored Comet Observatory two frames a step take 21 ms at the full 2732x2048
+(so it stays at 60) and 14 ms at 3x (120). At 3x the Observatory, the Terrace
+and Good Egg hold 120 frames a second.
 
 `PETARI_SMOOTH_MOTION=1` or `0` overrides the mod and the screen check for
 one run (tests); `PETARI_SMOOTH_MOTION_MODELS=0` blends only the camera
