@@ -6,17 +6,35 @@
 // (native/app/CMakeLists.txt), because the Original engine links its own SDL and
 // Objective-C class names are process-wide. SDL looks two of them up by name;
 // this category returns the renamed names, as SDL's subclassing notes describe.
+//
+// Scenes: UIKit reuses a saved scene session's configuration at the next launch,
+// and GalaxyPad's Original engine needs its own scene delegate. So inside
+// GalaxyPad every scene uses GalaxyPad's configuration ("GalaxyPad" in its
+// Info.plist), whose delegate hands the scene to SDL's while this engine runs.
 
 #define SDL_MAIN_HANDLED 1
 #include <SDL3/SDL_main.h>
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 extern "C" int aurora_main(int argc, char* argv[]);  // app_main.cpp (aurora/main.h renames main)
 
 @interface SDLUIKitDelegate : NSObject
 @end
-@interface SDLUIKitSceneDelegate : NSObject
+@interface SDLUIKitSceneDelegate : SDLUIKitDelegate
+@end
+
+@interface GalaxyPadEngineAppDelegate : SDLUIKitSceneDelegate
+@end
+
+@implementation GalaxyPadEngineAppDelegate
+- (UISceneConfiguration*)application:(UIApplication*)application
+    configurationForConnectingSceneSession:(UISceneSession*)session
+                                   options:(UISceneConnectionOptions*)options {
+    (void)application;
+    (void)options;
+    return [[UISceneConfiguration alloc] initWithName:@"GalaxyPad" sessionRole:session.role];
+}
 @end
 
 @implementation SDLUIKitDelegate (GalaxyPadEngine)
@@ -27,7 +45,7 @@ extern "C" int aurora_main(int argc, char* argv[]);  // app_main.cpp (aurora/mai
 
 @implementation SDLUIKitSceneDelegate (GalaxyPadEngine)
 + (NSString*)getSceneDelegateClassName {
-    return NSStringFromClass(self);
+    return NSStringFromClass(GalaxyPadEngineAppDelegate.class);
 }
 @end
 
