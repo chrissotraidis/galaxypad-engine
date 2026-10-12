@@ -73,6 +73,27 @@ South, East, West, North, Back, Guide, Start, LeftStick, RightStick,
 LeftShoulder, RightShoulder, DpadUp, DpadDown, DpadLeft, DpadRight,
 LeftTrigger and RightTrigger.
 
+## Touch screens (iPhone and iPad)
+
+On by default on iOS (`PETARI_TOUCH_CONTROLS=0|1` overrides). The controls feed
+the same input layer as a controller, so the game's own Wii Remote handling is
+unchanged.
+
+| Touch | Action |
+| --- | --- |
+| Lower left: a floating stick where the thumb lands | Move (Nunchuk stick) |
+| A, B | A, B |
+| X | Spin (a Wii Remote shake) |
+| Y | C |
+| Z (beside the stick) | Z |
+| +, -, 1, 2, Home | The Wii Remote's buttons; Home opens the native menu |
+| One finger anywhere else | The Star Pointer follows the finger exactly and stays where it was lifted |
+| Two fingers anywhere else, with the Odyssey camera mod on | Drag to orbit the camera, pinch to zoom; the pointer stays put |
+
+On phones wider than 1.9:1 the buttons and small pills stand in the bars beside
+the 16:9 image, clear of the HUD and the notch. A finger keeps the control it first
+touched until it lifts; sliding between A, B, X and Y switches the held button.
+
 ## Wii Remote moves on a keyboard
 
 Every action the game asks for can be done with a single key or a natural

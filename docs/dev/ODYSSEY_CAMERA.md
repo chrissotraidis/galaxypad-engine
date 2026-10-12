@@ -143,6 +143,11 @@ invert vertical; saved in `camera.txt` next to `mods.txt` (`OdysseyCamera`,
 overrides on/off for a run. The camera and Odyssey movement mods are independent:
 either works alone, or both together.
 
+On touch screens two fingers on open screen orbit (the mouse-drag rate, by the
+fingers' centre) and pinch to zoom (the trackpad-pinch rate); one finger stays the
+Star Pointer (native/app/touch_controls.cpp). With `PETARI_SMOKE_VIA_TOUCH=1` the
+camera test below sends its zoom and drag as two-finger gestures.
+
 ## Live checks
 
 `PETARI_CAMERA_TEST=1` (with the mod on) drives the camera while the orbit is

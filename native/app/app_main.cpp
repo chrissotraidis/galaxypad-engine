@@ -328,9 +328,11 @@ App::FrameStats::Phase framePhaseForPipelines() {
         const float sweepX = f >= 80 && f < 200 ? 1.0f : 0.0f, sweepY = f >= 30 && f < 80 ? -1.0f : 0.0f;
         Camera::stick(f >= 300 && f < 420 ? 0.7f : sweepX, f >= 480 && f < 540 ? 0.6f : sweepY);
         if (f == 240) Camera::recenter();
-        if (f == 560) Camera::zoomSteps(4.0f);
-        if (f == 620) Camera::zoomSteps(-6.0f);
-        if (f >= 660 && f < 690) Camera::mouseDrag(-8.0f, 2.0f);
+        // PETARI_SMOKE_VIA_TOUCH=1: zoom and drag as two-finger touch gestures.
+        const bool touch = App::TouchControls::smokeViaTouch();
+        if (f == 560) touch ? App::TouchControls::syntheticCamera(0.0f, 0.0f, std::pow(1.1f, -4.0f)) : Camera::zoomSteps(4.0f);
+        if (f == 620) touch ? App::TouchControls::syntheticCamera(0.0f, 0.0f, std::pow(1.1f, 6.0f)) : Camera::zoomSteps(-6.0f);
+        if (f >= 660 && f < 690) touch ? App::TouchControls::syntheticCamera(-8.0f, 2.0f, 1.0f) : Camera::mouseDrag(-8.0f, 2.0f);
         if (f == 840) Camera::recenter();
     } else if (cameraTest) {
         PetariNative::CameraSettings::stick(0.0f, 0.0f);

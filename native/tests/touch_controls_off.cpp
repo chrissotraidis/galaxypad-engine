@@ -11,4 +11,5 @@ void releaseAll() {}
 bool smokeViaTouch() { return false; }
 void synthetic(Synthetic, bool) {}
 void syntheticPointer(float, float) {}
+void syntheticCamera(float, float, float) {}
 }  // namespace PetariNative::App::TouchControls

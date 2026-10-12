@@ -5,7 +5,9 @@
 // pills for +/- and 1/2. X is Spin (a Wii Remote flick) and Y is Nunchuk C.
 // Each finger keeps the control it first touched until it lifts. A finger that
 // starts on no control drives the Star Pointer: the pointer follows it exactly
-// and stays where it was released, so A or B can then be pressed.
+// and stays where it was released, so A or B can then be pressed. With the
+// Odyssey camera mod on, a second finger on open screen turns both into a camera
+// gesture: dragging orbits, pinching zooms, and the pointer stays where it was.
 
 #include "touch_controls.hpp"
 
@@ -20,13 +22,14 @@
 #include <TargetConditionals.h>
 
 #include "petari/input.hpp"
+#include "petari/camera_settings.hpp"
 
 namespace PetariNative::App::TouchControls {
 namespace {
 
 using Input::PadButton;
 
-enum class Kind { Button, Key, Stick, Pointer };
+enum class Kind { Button, Key, Stick, Pointer, Camera };
 
 struct Control {
     const char* label;
@@ -72,6 +75,8 @@ float gWidth = 0.0f, gHeight = 0.0f;
 float gStickX = 0.0f, gStickY = 0.0f;  // -1..1, y down
 bool gStickActive = false;
 float gStickOriginX = 0.0f, gStickOriginY = 0.0f, gStickKnobX = 0.0f, gStickKnobY = 0.0f;
+// Camera gesture: the camera fingers' centre and spread when last applied.
+float gCameraX = 0.0f, gCameraY = 0.0f, gCameraSpread = 0.0f;
 
 float unit() { return std::clamp(std::min(gWidth, gHeight) * 0.085f, 26.0f, 58.0f); }
 bool phone() { return gHeight > 0.0f && gWidth / gHeight > 1.9f; }
@@ -168,6 +173,44 @@ Finger* finger(SDL_FingerID id) {
     return nullptr;
 }
 
+// Centre and spread (distance between the first two) of the camera fingers.
+int cameraFingers(float* x, float* y, float* spread) {
+    const Finger* found[2] = {};
+    int count = 0;
+    float sx = 0.0f, sy = 0.0f;
+    for (const Finger& f : gFingers) {
+        if (!f.active || f.kind != Kind::Camera) continue;
+        if (count < 2) found[count] = &f;
+        sx += f.x;
+        sy += f.y;
+        ++count;
+    }
+    if (count == 0) return 0;
+    *x = sx / count;
+    *y = sy / count;
+    *spread = count >= 2 ? std::hypot(found[0]->x - found[1]->x, found[0]->y - found[1]->y) : 0.0f;
+    return count;
+}
+
+// A camera finger came or went: measure from where the fingers are now.
+void restartCamera() {
+    cameraFingers(&gCameraX, &gCameraY, &gCameraSpread);
+}
+
+// A camera finger moved: orbit by the centre's motion (the mouse-drag rate) and,
+// with two fingers, zoom by the change in spread (the trackpad-pinch rate).
+void moveCamera() {
+    float x, y, spread;
+    if (cameraFingers(&x, &y, &spread) == 0) return;
+    CameraSettings::mouseDrag(x - gCameraX, y - gCameraY);
+    if (spread > 1.0f && gCameraSpread > 1.0f) {
+        CameraSettings::zoomSteps(-std::log(spread / gCameraSpread) / std::log(1.1f));
+    }
+    gCameraX = x;
+    gCameraY = y;
+    gCameraSpread = spread;
+}
+
 }  // namespace
 
 bool enabled() {
@@ -220,6 +263,16 @@ bool handle(const SDL_Event& event) {
         } else if (!stickTaken && inStickZone(x, y)) {
             slot->kind = Kind::Stick;
             updateStick(*slot);
+        } else if (CameraSettings::enabled() &&
+                   std::any_of(gFingers.begin(), gFingers.end(), [&](const Finger& f) {
+                       return f.active && &f != slot && (f.kind == Kind::Pointer || f.kind == Kind::Camera);
+                   })) {
+            // Second finger on open screen: both orbit the camera; the pointer stays put.
+            for (Finger& f : gFingers) {
+                if (f.active && f.kind == Kind::Pointer) f.kind = Kind::Camera;
+            }
+            slot->kind = Kind::Camera;
+            restartCamera();
         } else {
             slot->kind = Kind::Pointer;
             Input::focusChanged(true);
@@ -236,6 +289,8 @@ bool handle(const SDL_Event& event) {
             updateStick(*f);
         } else if (f->kind == Kind::Pointer) {
             Input::mouseMoved(x, y);
+        } else if (f->kind == Kind::Camera) {
+            moveCamera();
         } else if (f->kind == Kind::Button) {
             // Sliding between face buttons switches the held button, as a thumb
             // rolling from B to A would; sliding off keeps the first one.
@@ -253,6 +308,7 @@ bool handle(const SDL_Event& event) {
     f->active = false;
     if (kind == Kind::Stick) releaseStick();
     if (kind == Kind::Button) refreshHeld();
+    if (kind == Kind::Camera) restartCamera();
     if (kind == Kind::Pointer && event.type == SDL_EVENT_FINGER_CANCELED) Input::mouseLeft();
     return true;
 }
@@ -334,6 +390,19 @@ void syntheticPointer(float x, float y) {
     if (gWidth <= 0.0f) return;
     sendFinger(SDL_EVENT_FINGER_DOWN, kPointerFinger, x, y);
     sendFinger(SDL_EVENT_FINGER_UP, kPointerFinger, x, y);
+}
+
+void syntheticCamera(float dx, float dy, float pinch) {
+    if (gWidth <= 0.0f) return;
+    // Two fingers 160 points apart, a little above the middle (clear of every control).
+    const float cx = gWidth * 0.5f, cy = gHeight * 0.4f, half = 80.0f;
+    constexpr SDL_FingerID kCameraFinger = 9300;
+    sendFinger(SDL_EVENT_FINGER_DOWN, kCameraFinger, cx - half, cy);
+    sendFinger(SDL_EVENT_FINGER_DOWN, kCameraFinger + 1, cx + half, cy);
+    sendFinger(SDL_EVENT_FINGER_MOTION, kCameraFinger, cx + dx - half * pinch, cy + dy);
+    sendFinger(SDL_EVENT_FINGER_MOTION, kCameraFinger + 1, cx + dx + half * pinch, cy + dy);
+    sendFinger(SDL_EVENT_FINGER_UP, kCameraFinger, cx + dx - half * pinch, cy + dy);
+    sendFinger(SDL_EVENT_FINGER_UP, kCameraFinger + 1, cx + dx + half * pinch, cy + dy);
 }
 
 void draw() {

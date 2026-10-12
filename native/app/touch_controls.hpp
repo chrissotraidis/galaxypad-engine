@@ -26,6 +26,9 @@ bool smokeViaTouch();
 enum class Synthetic { A, B, Spin, Z, Plus, Minus, StickUp, StickDown, StickLeft, StickRight };
 void synthetic(Synthetic which, bool down);
 void syntheticPointer(float x, float y);
+// A whole two-finger gesture: move both by (dx, dy) points and scale their spread
+// by pinch (> 1 spreads: zoom in). Needs the Odyssey camera mod.
+void syntheticCamera(float dx, float dy, float pinch);
 
 }  // namespace PetariNative::App::TouchControls
 
