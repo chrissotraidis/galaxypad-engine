@@ -41,6 +41,12 @@ particles and the HUD show the step's own state. Camera cuts and teleports
 are shown as they are. On screens under 110 Hz the mod has no effect, since
 two frames per step would halve the game's speed there.
 
+The game's speed comes first: an in-between frame is drawn only while the step
+with it still fits in a 60 Hz frame (about 16 ms; it resumes under 15 ms).
+In heavier views the screen falls back to 60 frames a second at full speed.
+On an iPad Pro (M2) most of the Comet Observatory, the Terrace and Good Egg fit;
+the cost of a full draw (about 7-8 ms there) decides the rest.
+
 `PETARI_SMOOTH_MOTION=1` or `0` overrides the mod and the screen check for
 one run (tests); `PETARI_SMOOTH_MOTION_MODELS=0` blends only the camera
 (a diagnostic: Mario then visibly judders against the scenery). The log reports
