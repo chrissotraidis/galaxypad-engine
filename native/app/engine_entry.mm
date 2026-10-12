@@ -71,14 +71,15 @@ using Input::PadButton;
 
 // GalaxyPad's buttons (galaxypad::Button in its apple/shared/GalaxyPadInput.h)
 // press the controller buttons the engine's own touch controls use
-// (touch_controls.cpp), so remapped controls apply to both.
+// (touch_controls.cpp), so remapped controls apply to both. A presses Start
+// (North): A everywhere, with B while the title asks for both, so one tap starts.
 struct Route {
     std::uint32_t bit;
     PadButton pad;          // PadButton::Count: a key instead
     Input::KeyCode key;
 };
 constexpr Route kRoutes[] = {
-    {1u << 0, PadButton::South, 0},         // A
+    {1u << 0, PadButton::North, 0},         // A (the Start action)
     {1u << 1, PadButton::East, 0},          // B
     {1u << 2, PadButton::LeftShoulder, 0},  // C
     {1u << 3, PadButton::LeftTrigger, 0},   // Z
