@@ -104,6 +104,9 @@ const FrameStats::Recorder* frameStats();
 // GalaxyPad's pause: while set, the seam holds the game after presenting its
 // frame and keeps handling window events. Any thread.
 void setPaused(bool paused);
+// One wait of the paused loop (ui_wait.cpp): on iOS it runs the main run loop
+// for up to 8 ms, so the app's own menus get the main thread; elsewhere it sleeps.
+void waitWhilePaused();
 // Frames presented so far, in-between Smooth Motion frames included. Any thread.
 std::uint64_t presentedFrames();
 // At exit: prints the frame-time summary and writes PETARI_FRAME_CSV, if

@@ -4,10 +4,6 @@
 #include <aurora/event.h>
 
 #include <SDL3/SDL_timer.h>
-#include <TargetConditionals.h>
-#if TARGET_OS_IPHONE
-#include <CoreFoundation/CoreFoundation.h>
-#endif
 #include <SDL3/SDL_video.h>
 
 #include <atomic>
@@ -675,11 +671,7 @@ extern "C" void petari_host_frame_seam(void) {
     // while it waits: give the run loop that time instead of sleeping.
     while (gPaused.load(std::memory_order_relaxed)) {
         handleEvents(aurora_update());
-#if TARGET_OS_IPHONE
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0 / 120.0, true);
-#else
-        SDL_DelayNS(8000000);
-#endif
+        Seam::waitWhilePaused();
     }
 
     const std::uint64_t beginStart = Telemetry::nowNs();

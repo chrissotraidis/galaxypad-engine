@@ -44,7 +44,7 @@ if(NOT _petari_app_standalone)
         petari_platform_os petari_platform_vi petari_platform_dvd petari_platform_nand petari_platform_sc
         petari_audio_sdl petari_host_runtime petari_app_smoke petari_milestone)
 
-    add_library(petari_app_host STATIC frame_seam.cpp frame_stats.cpp spike_profiler.cpp input_events.cpp pipeline_startup.cpp
+    add_library(petari_app_host STATIC frame_seam.cpp ui_wait.cpp frame_stats.cpp spike_profiler.cpp input_events.cpp pipeline_startup.cpp
         touch_controls.cpp)
     target_include_directories(petari_app_host PUBLIC ${PETARI_REPO_ROOT}/native/include)
     # Deliberately not petari_native_config: no SDK include paths next to Aurora's.
@@ -246,7 +246,7 @@ if(BUILD_TESTING)
     target_link_libraries(petari_app_smoke_domes_tests PRIVATE petari_app_smoke)
     add_test(NAME native_app_smoke_domes COMMAND petari_app_smoke_domes_tests)
     # The seam against recording fakes of Aurora, SDL and the app's other units.
-    add_executable(petari_app_seam_tests ${PETARI_REPO_ROOT}/native/tests/app_seam_tests.cpp frame_seam.cpp frame_stats.cpp spike_profiler.cpp)
+    add_executable(petari_app_seam_tests ${PETARI_REPO_ROOT}/native/tests/app_seam_tests.cpp frame_seam.cpp ui_wait.cpp frame_stats.cpp spike_profiler.cpp)
     target_link_libraries(petari_app_seam_tests PRIVATE petari_app_smoke)
     if(APPLE)
         # frame_stats.cpp reads NSProcessInfo.thermalState through the Objective-C runtime.
