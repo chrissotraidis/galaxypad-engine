@@ -4,6 +4,10 @@
 #include <aurora/event.h>
 
 #include <SDL3/SDL_timer.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 #include <SDL3/SDL_video.h>
 
 #include <atomic>
@@ -666,11 +670,16 @@ extern "C" void petari_host_frame_seam(void) {
     const std::uint64_t endStart = Telemetry::nowNs();
     aurora_end_frame();
     gPresented.fetch_add(1, std::memory_order_relaxed);
-    // GalaxyPad's pause: the frame stays on screen and the CPU stays released,
-    // so the app's own menus keep working (window events run its UI).
+    // GalaxyPad's pause: the frame stays on screen and the CPU stays released.
+    // The game runs on the main thread, so the app's menus and sheets only get it
+    // while it waits: give the run loop that time instead of sleeping.
     while (gPaused.load(std::memory_order_relaxed)) {
         handleEvents(aurora_update());
+#if TARGET_OS_IPHONE
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0 / 120.0, true);
+#else
         SDL_DelayNS(8000000);
+#endif
     }
 
     const std::uint64_t beginStart = Telemetry::nowNs();
