@@ -312,7 +312,6 @@ Building
   ```
 
 - Using [Dolphin Emulator](https://dolphin-emu.org/), extract your game to `orig/GAMEID`.
-![](assets/dolphin-extract.png)
   - To save space, the only necessary files are the following. Any others can be deleted.
     - `sys/main.dol`
 - Configure:
