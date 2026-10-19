@@ -13,6 +13,15 @@ to GalaxyPad, not to either project. It is based on MacioGalaxy commit
 `4bbf2af23d694a835652f7ac218034cb3cebade4`; GalaxyPad's changes are the commits
 after it. No game data is included. MacioGalaxy's own README follows.
 
+## Legal
+
+GalaxyPad engine is an unofficial, fan-made project. It is not affiliated with,
+endorsed by, or sponsored by Nintendo. Super Mario Galaxy and related names and
+marks are trademarks of Nintendo (and their respective owners). This repository
+contains no game data, disc images, or extracted assets. To use it, you need
+your own legally obtained copy of the game, and you build it yourself on your
+own machine. Please don't share game files or builds made from them.
+
 ---
 
 # Petari for Apple Silicon (unofficial native port)
