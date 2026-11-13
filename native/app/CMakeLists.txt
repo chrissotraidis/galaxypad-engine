@@ -117,6 +117,10 @@ if(NOT _petari_app_standalone)
         if(NOT TARGET SDL3-static OR NOT IS_DIRECTORY "${_petari_sdl_source}/src")
             message(FATAL_ERROR "GalaxyPadEngine needs Aurora's static SDL3 built from source")
         endif()
+        # SDL's window follows the scene GalaxyPad hands it, and no other scene
+        # (an external display's) starts the engine again (SDL3UIKitSceneGeometry.cmake).
+        include("${CMAKE_SOURCE_DIR}/native/cmake/SDL3UIKitSceneGeometry.cmake")
+        sdl3_uikit_scene_geometry_patch("${_petari_sdl_source}")
         file(GLOB_RECURSE _petari_sdl_objc "${_petari_sdl_source}/src/*.m")
         set(_petari_sdl_classes)
         foreach(_file IN LISTS _petari_sdl_objc)

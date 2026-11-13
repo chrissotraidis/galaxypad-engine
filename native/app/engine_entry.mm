@@ -48,6 +48,11 @@ extern "C" int aurora_main(int argc, char* argv[]);  // app_main.cpp (aurora/mai
                                    options:(UISceneConnectionOptions*)options {
     (void)application;
     (void)options;
+    // An external display's scene gets no delegate, so the system keeps its
+    // default there (mirroring or an extended display), as in SDL itself.
+    if (![session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+        return [[UISceneConfiguration alloc] initWithName:nil sessionRole:session.role];
+    }
     return [[UISceneConfiguration alloc] initWithName:@"GalaxyPad" sessionRole:session.role];
 }
 @end
